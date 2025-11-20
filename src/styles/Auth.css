@@ -1,0 +1,22 @@
+/* src/components/Auth.css */
+.auth-wrapper {
+  background: radial-gradient(circle at top, #0f5ea8 0, #0b1021 60%, #02040a 100%);
+  min-height: 100vh;
+}
+
+.auth-card {
+  border-radius: 18px;
+  backdrop-filter: blur(10px);
+}
+
+.auth-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  background: linear-gradient(135deg, #1a97ff, #47e5bc);
+  color: #fff;
+}

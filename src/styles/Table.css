@@ -1,0 +1,11 @@
+/* src/styles/Table.css */
+.table-search-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.table-search-row .search-input {
+  max-width: 280px;
+}

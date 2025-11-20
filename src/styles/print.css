@@ -1,0 +1,272 @@
+/* src/styles/print.css */
+
+/* Page background around the sheet */
+.rx-page {
+  padding: 1.5rem;
+  background: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* A4-like sheet */
+.rx-sheet {
+  background: #ffffff;
+  width: 210mm;
+  min-height: 297mm;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 1100px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* HEADER */
+.rx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #2c74b3;
+  color: #ffffff;
+  padding: 50px 24px;
+}
+
+.rx-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rx-clinic-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.rx-clinic-line {
+  font-size: 0.75rem;
+}
+
+/* Logo circle on right */
+.rx-header-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rx-logo-circle {
+  width: 200px;
+  height: 70px;
+  /* border-radius: 50%; */
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.rx-logo-circle img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+/* BODY */
+.rx-body {
+  flex: 1;
+  padding: 20px 28px 24px;
+  font-size: 0.9rem;
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+/* Top doctor + prescription info */
+.rx-top-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.rx-doctor-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rx-doctor-name {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.rx-doctor-phone {
+  font-size: 0.8rem;
+}
+
+.rx-meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.rx-meta-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.rx-meta-label {
+  font-weight: 600;
+}
+
+.rx-meta-value {
+  font-family: "Courier New", monospace;
+}
+
+/* thin blue-gray divider like reference */
+.rx-divider {
+  border: none;
+  border-top: 2px solid #2563eb;
+  margin: 12px 0 16px;
+}
+
+/* Medicines lines */
+.rx-meds-section {
+  min-height: 140px;
+  margin-bottom: 24px;
+  margin-top: 50px;
+}
+
+.rx-med-line {
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  font-style: italic;
+}
+
+/* Patient details block at bottom */
+.rx-patient-section {
+  margin-top: 20px;
+  padding-top: 8px;
+}
+
+.rx-patient-row {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  column-gap: 10px;
+  margin-bottom: 10px;
+}
+
+.rx-patient-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-transform: uppercase;
+}
+
+.rx-patient-value {
+  /* border-bottom: 1px solid #d1d5db; */
+  padding-bottom: 2px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+/* FOOTER BAR */
+.rx-footer {
+  background: #2c74b3;
+  color: #ffffff;
+  padding: 8px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.rx-footer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rx-footer-icon {
+  font-size: 0.85rem;
+}
+
+/* Buttons below sheet */
+.rx-actions {
+  margin-top: 1rem;
+  width: 210mm;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* PRINT RULES */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  .sidebar,
+  .main-topbar {
+    display: none !important;
+  }
+
+  .content-inner {
+    padding: 0 !important;
+  }
+
+  .rx-page {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .rx-sheet {
+    width: 100% !important;
+    min-height: auto;
+    box-shadow: none !important;
+  }
+
+  .rx-actions {
+    display: none !important;
+  }
+}
+
+
+.rx-med-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.rx-med-table th {
+  background: #eef3fb;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  color: #2c74b3;
+}
+
+.rx-med-table td {
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+.rx-med-table strong {
+  font-weight: 600;
+}

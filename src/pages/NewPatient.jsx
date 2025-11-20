@@ -13,6 +13,7 @@ export default function NewPatient() {
   const [form, setForm] = useState({
     name: "",
     age: "",
+    phone:"",
     sex: "",
     address: "",
   });
@@ -38,6 +39,7 @@ export default function NewPatient() {
         name: form.name.trim(),
         age: Number(form.age),
         sex: form.sex,
+        phone: form.phone,
         address: form.address.trim(),
         createdAt: serverTimestamp(),
         createdBy: user?.uid || null,
@@ -50,7 +52,7 @@ export default function NewPatient() {
           state: { patientId: ref.id },
         });
       } else {
-        setForm({ name: "", age: "", sex: "", address: "" });
+        setForm({ name: "", age: "", sex: "", phone: "", address: "" });
       }
     } catch (err) {
       console.error(err);
@@ -67,7 +69,7 @@ export default function NewPatient() {
 
   return (
     <div>
-      <h4 className="mb-3">New Patient</h4>
+      <h4 className="mb-3">New Patient Registration</h4>
       <Card className="shadow-sm border-0">
         <Card.Body>
           <Form onSubmit={handleSubmit}>
@@ -120,6 +122,23 @@ export default function NewPatient() {
                   </Form.Select>
                   <Form.Control.Feedback type="invalid">
                     {errors.sex}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </div>
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>Phone</Form.Label>
+                  <Form.Control
+                    placeholder="Enter 10 digit phone numbers"
+                    maxLength={10}
+                    value={form.phone}
+                    isInvalid={!!errors.phone}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, phone: e.target.value }))
+                    }
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.age}
                   </Form.Control.Feedback>
                 </Form.Group>
               </div>

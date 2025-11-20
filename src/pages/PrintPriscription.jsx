@@ -133,12 +133,14 @@ export default function PrintPrescription() {
                 <div>
                     <header className="rx-header">
                         <div className="rx-header-left">
-                            <div className="rx-clinic-name">LIFE KARE HOSPITAL</div>
+                            <div className="rx-clinic-name">
+                                {/* LIFE KARE HOSPITAL */}
+                                </div>
                             <div className="rx-clinic-line">
-                                3-4-5, Nirankari Colony, Amritsar
+                                {/* 3-4-5, Nirankari Colony, Amritsar */}
                             </div>
                             <div className="rx-clinic-line">
-                                lifekarehospital@gmail.com &nbsp;|&nbsp; www.lifekarehospital.in
+                                {/* lifekarehospital@gmail.com &nbsp;|&nbsp; www.lifekarehospital.in */}
                             </div>
                         </div>
                         <div className="rx-header-right">
@@ -161,12 +163,12 @@ export default function PrintPrescription() {
 
                             <div className="rx-top-info">
                                 <div className="rx-doctor-block">
-                                    <div className="rx-doctor-name">Dr. Raghu Sharma, MD</div>
-                                    <div className="rx-doctor-phone">{doctorPhone}</div>
+                                    <div className="rx-doctor-name">{patient.name} ({patient.age}y/ {patient.sex})</div>
+                                    <div className="rx-doctor-address">{patient.address}</div>
                                 </div>
                                 <div className="rx-meta-block">
                                     <div className="rx-meta-row">
-                                        <span className="rx-meta-label">Prescription no.:</span>
+                                        <span className="rx-meta-label">OPD No.</span>
                                         <span className="rx-meta-value">#{orderId}</span>
                                     </div>
                                     <div className="rx-meta-row">
@@ -179,8 +181,8 @@ export default function PrintPrescription() {
                             <hr className="rx-divider" />
 
                             <div className="rx-patient-row">
-                                <div className="rx-patient-label">Patient:</div>
-                                <div className="rx-patient-value">{patient.name} ({patient.age}y, {patient.sex}) from {patient.address} </div>
+                                <div className="rx-patient-label">Chief Complaints & Provisional Diagnosis:</div>
+                                <div className="rx-patient-value" style={{ whiteSpace: "pre-line" }}>{instructions}</div>
                             </div>
                             {/* Medicines list */}
                             <section className="rx-meds-section">
@@ -191,7 +193,8 @@ export default function PrintPrescription() {
                                             <th style={{ width: "40px" }}>#</th>
                                             <th>Medicine</th>
                                             <th>Dosage</th>
-                                            <th>Timing – Frequency – Duration</th>
+                                            <th>Frequency</th>
+                                            <th>Duration</th>
                                         </tr>
                                     </thead>
 
@@ -208,13 +211,13 @@ export default function PrintPrescription() {
                                             return (
                                                 <tr key={index}>
                                                     {/* Numbering */}
-                                                    <td><strong>{index + 1}</strong></td>
+                                                    <td><span>{index + 1}</span></td>
 
                                                     {/* Medicine Name in Bold */}
                                                     <td>
                                                         <strong>{m.name}&nbsp;({m.strength})</strong>
-                                                        <br />
-                                                        <strong style={{ fontSize: 12, color: '#464545' }}>Timings: {getTimingFromPattern(m.pattern)}</strong>
+                                                        {/* <br />
+                                                        <strong style={{ fontSize: 12, color: '#464545' }}>Timings: {getTimingFromPattern(m.pattern)}</strong> */}
                                                     </td>
 
                                                     {/* Dosage Pattern */}
@@ -226,25 +229,18 @@ export default function PrintPrescription() {
                                                         )}
                                                     </td>
 
-                                                    {/* Timing – Frequency – Duration */}
+                                                    {/* Frequency – Duration */}
                                                     <td>
-                                                        <strong style={{ fontWeight: 400 }}>{m.timesPerDay} - {m.instructions}</strong>
+                                                        <strong style={{ fontWeight: 400 }}>{m.timesPerDay}</strong>
+                                                    </td>
+                                                    <td>
+                                                        <strong style={{ fontWeight: 400 }}>{m.instructions}</strong>
                                                     </td>
                                                 </tr>
                                             );
                                         })}
                                     </tbody>
                                 </table>
-
-                                {/* General Instructions */}
-                                {instructions && (
-                                    <div className="mt-3">
-                                        <strong>Diagnose & Remarks:</strong>
-                                        <p className="mt-1" style={{ whiteSpace: "pre-line" }}>
-                                            {instructions}
-                                        </p>
-                                    </div>
-                                )}
                             </section>
 
                         </div>

@@ -131,11 +131,11 @@ export default function PrintPrescription() {
             <div className="rx-sheet">
                 {/* HEADER */}
                 <div>
-                    <header className="rx-header">
+                    <header className="rx-header" style={{ visibility: 'hidden' }}>
                         <div className="rx-header-left">
                             <div className="rx-clinic-name">
                                 {/* LIFE KARE HOSPITAL */}
-                                </div>
+                            </div>
                             <div className="rx-clinic-line">
                                 {/* 3-4-5, Nirankari Colony, Amritsar */}
                             </div>
@@ -167,13 +167,14 @@ export default function PrintPrescription() {
                                     <div className="rx-doctor-address">{patient.address}</div>
                                 </div>
                                 <div className="rx-meta-block">
-                                    <div className="rx-meta-row">
-                                        <span className="rx-meta-label">OPD No.</span>
-                                        <span className="rx-meta-value">#{orderId}</span>
-                                    </div>
+
                                     <div className="rx-meta-row">
                                         <span className="rx-meta-label">Date:</span>
                                         <span className="rx-meta-value">{dateStr}</span>
+                                    </div>
+                                    <div className="rx-meta-row">
+                                        <span className="rx-meta-label">OHID No. </span>
+                                        <span className="rx-meta-value">#{orderId}</span>
                                     </div>
                                 </div>
                             </div>
@@ -248,7 +249,7 @@ export default function PrintPrescription() {
                     </main>
                 </div>
                 {/* FOOTER BAR */}
-                <footer className="rx-footer">
+                <footer className="rx-footer" style={{ visibility: 'hidden' }}>
                     <div className="rx-footer-item">
                         <i className="bi bi-telephone rx-footer-icon" />
                         <span>+91 9216172500</span>

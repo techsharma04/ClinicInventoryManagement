@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, Form, Table, Pagination } from "react-bootstrap";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../firebase";
-
 const PAGE_SIZE = 10;
 
 export default function RegisteredPatients() {

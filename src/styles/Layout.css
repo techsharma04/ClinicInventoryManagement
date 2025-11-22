@@ -81,6 +81,28 @@
   color: #fff;
 }
 
+.sidebar-logout-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  color: #cbd5e1;
+  text-decoration: none;
+  margin-bottom: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: all 0.18s ease;
+  background: linear-gradient(90deg, rgba(180, 58, 58, 1) 0%, rgba(253, 29, 29, 1) 16%, rgba(252, 133, 69, 1) 100%);
+  border: none;
+}
+
+.sidebar-logout-link.active,
+.sidebar-logout-link:hover {
+  background: linear-gradient(180deg, rgba(253, 29, 29, 1) 17%, rgba(252, 133, 69, 1) 100%, rgba(180, 58, 58, 1) 0%);
+  color: #fff;
+}
+
 /* section toggle button */
 .sidebar-group-toggle {
   cursor: pointer;
@@ -235,6 +257,7 @@ table.clinic-table tbody tr:hover {
 table.clinic-table td,
 table.clinic-table th {
   vertical-align: middle;
+  text-transform: capitalize;
 }
 
 /* ---------- BUTTON STYLE TWEAKS ---------- */

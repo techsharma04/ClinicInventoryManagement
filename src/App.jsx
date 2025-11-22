@@ -16,6 +16,7 @@ import RegisteredPatients from "./pages/RegisteredPatients";
 import NewPrescription from "./pages/NewPrescription";
 import PreviousConsultations from "./pages/PreviousConsultations";
 import PrintPrescription from "./pages/PrintPriscription";
+import Inventory from "./pages/Inventory";
 
 export default function App() {
   const dispatch = useDispatch();
@@ -34,6 +35,7 @@ export default function App() {
       {/* protected app */}
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<SidebarLayout />}>
+          <Route path="/app/inventory" element={<Inventory />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="medicines" element={<Medicines />} />
           <Route path="patients/new" element={<NewPatient />} />

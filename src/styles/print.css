@@ -76,7 +76,7 @@
 /* BODY */
 .rx-body {
   flex: 1;
-  padding: 20px 28px 24px;
+  padding: 20px 28px 24px 220px;
   font-size: 0.9rem;
   color: #111827;
   display: flex;
@@ -123,6 +123,7 @@
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .rx-meta-label {

@@ -3,7 +3,6 @@
 /* Page background around the sheet */
 .rx-page {
   padding: 1.5rem;
-  background: #e5e7eb;
   display: flex;
   flex-direction: column;
   align-items: center;

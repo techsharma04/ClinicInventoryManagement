@@ -13,10 +13,18 @@ export default function NewPatient() {
   const [form, setForm] = useState({
     name: "",
     age: "",
-    phone:"",
+    phone: "",
+    email: "",
     sex: "",
     address: "",
+    bloodGroup: "",
+    maritalStatus: "",
+    emergencyContact: "",
+    medicalHistory: "",
+    allergies: "",
+    dob: "",
   });
+
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -36,11 +44,8 @@ export default function NewPatient() {
     setSaving(true);
     try {
       const ref = await addDoc(collection(db, "patients"), {
-        name: form.name.trim(),
+        ...form,
         age: Number(form.age),
-        sex: form.sex,
-        phone: form.phone,
-        address: form.address.trim(),
         createdAt: serverTimestamp(),
         createdBy: user?.uid || null,
         doctorName: user?.name || "",
@@ -52,7 +57,20 @@ export default function NewPatient() {
           state: { patientId: ref.id },
         });
       } else {
-        setForm({ name: "", age: "", sex: "", phone: "", address: "" });
+        setForm({
+          name: "",
+          age: "",
+          phone: "",
+          email: "",
+          sex: "",
+          address: "",
+          bloodGroup: "",
+          maritalStatus: "",
+          emergencyContact: "",
+          medicalHistory: "",
+          allergies: "",
+          dob: "",
+        });
       }
     } catch (err) {
       console.error(err);
@@ -73,6 +91,7 @@ export default function NewPatient() {
       <Card className="shadow-sm border-0">
         <Card.Body>
           <Form onSubmit={handleSubmit}>
+            {/* NAME */}
             <Form.Group className="mb-3">
               <Form.Label>Patient Name</Form.Label>
               <Form.Control
@@ -88,6 +107,7 @@ export default function NewPatient() {
               </Form.Control.Feedback>
             </Form.Group>
 
+            {/* AGE / SEX / PHONE */}
             <div className="row">
               <div className="col-md-4">
                 <Form.Group className="mb-3">
@@ -105,6 +125,7 @@ export default function NewPatient() {
                   </Form.Control.Feedback>
                 </Form.Group>
               </div>
+
               <div className="col-md-4">
                 <Form.Group className="mb-3">
                   <Form.Label>Sex</Form.Label>
@@ -125,25 +146,79 @@ export default function NewPatient() {
                   </Form.Control.Feedback>
                 </Form.Group>
               </div>
+
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>Blood Group</Form.Label>
+                  <Form.Select
+                    value={form.bloodGroup}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, bloodGroup: e.target.value }))
+                    }
+                  >
+                    <option value="">Select (optional)</option>
+                    <option>A+</option>
+                    <option>A-</option>
+                    <option>B+</option>
+                    <option>B-</option>
+                    <option>AB+</option>
+                    <option>AB-</option>
+                    <option>O+</option>
+                    <option>O-</option>
+                  </Form.Select>
+                </Form.Group>
+              </div>
+
+            </div>
+
+            {/* EMAIL / BLOOD GROUP / MARITAL STATUS */}
+            <div className="row">
               <div className="col-md-4">
                 <Form.Group className="mb-3">
                   <Form.Label>Phone</Form.Label>
                   <Form.Control
-                    placeholder="Enter 10 digit phone numbers"
-                    maxLength={10}
+                    placeholder="Enter phone (optional)"
                     value={form.phone}
-                    isInvalid={!!errors.phone}
+                    maxLength={10}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, phone: e.target.value }))
                     }
                   />
-                  <Form.Control.Feedback type="invalid">
-                    {errors.age}
-                  </Form.Control.Feedback>
+                </Form.Group>
+              </div>
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>Email</Form.Label>
+                  <Form.Control
+                    placeholder="Enter email (optional)"
+                    value={form.email}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, email: e.target.value }))
+                    }
+                  />
+                </Form.Group>
+              </div>
+
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>Marital Status</Form.Label>
+                  <Form.Select
+                    value={form.maritalStatus}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, maritalStatus: e.target.value }))
+                    }
+                  >
+                    <option value="">Select (optional)</option>
+                    <option>Single</option>
+                    <option>Married</option>
+                    <option>Divorced</option>
+                    <option>Widowed</option>
+                  </Form.Select>
                 </Form.Group>
               </div>
             </div>
 
+            {/* ADDRESS */}
             <Form.Group className="mb-3">
               <Form.Label>Address</Form.Label>
               <Form.Control
@@ -161,6 +236,64 @@ export default function NewPatient() {
               </Form.Control.Feedback>
             </Form.Group>
 
+            {/* EMERGENCY CONTACT / DOB */}
+            <div className="row">
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Emergency Contact</Form.Label>
+                  <Form.Control
+                    placeholder="Enter emergency contact number"
+                    value={form.emergencyContact}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, emergencyContact: e.target.value }))
+                    }
+                  />
+                </Form.Group>
+              </div>
+
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Date of Birth</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={form.dob}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, dob: e.target.value }))
+                    }
+                  />
+                </Form.Group>
+              </div>
+            </div>
+
+            {/* MEDICAL HISTORY */}
+            <Form.Group className="mb-3">
+              <Form.Label>Medical History</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Enter medical history (optional)"
+                value={form.medicalHistory}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, medicalHistory: e.target.value }))
+                }
+              />
+            </Form.Group>
+
+            {/* ALLERGIES */}
+            <Form.Group className="mb-3">
+              <Form.Label>Known Allergies</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                placeholder="Enter allergies (optional)"
+                value={form.allergies}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, allergies: e.target.value }))
+                }
+              />
+            </Form.Group>
+
+            {/* BUTTONS */}
             <div className="d-flex justify-content-end gap-2 mt-3">
               <Button
                 variant="secondary"

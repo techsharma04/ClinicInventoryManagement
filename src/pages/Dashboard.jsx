@@ -65,8 +65,8 @@ export default function Dashboard() {
       <h4 className="mb-4">Dashboard</h4>
       <Row className="g-3">
         <Col md={4}>
-          <Card className="dashboard-card">
-            <Card.Body className="dashboard-card-body">
+          <Card className="dashboard-card" style={{ padding: 0 }}>
+            <Card.Body className="dashboard-card-body" style={{ padding: '10px 20px' }}>
               <div className="dashboard-card-title">Medicines</div>
               <div className="dashboard-card-value">
                 {loadingText || counts.medicines}
@@ -79,8 +79,8 @@ export default function Dashboard() {
         </Col>
 
         <Col md={4}>
-          <Card className="dashboard-card">
-            <Card.Body className="dashboard-card-body">
+          <Card className="dashboard-card" style={{ padding: 0 }}>
+            <Card.Body className="dashboard-card-body" style={{ padding: '10px 20px' }}>
               <div className="dashboard-card-title">Consultations</div>
               <div className="dashboard-card-value">
                 {loadingText || counts.workorders}
@@ -93,8 +93,8 @@ export default function Dashboard() {
         </Col>
 
         <Col md={4}>
-          <Card className="dashboard-card">
-            <Card.Body className="dashboard-card-body">
+          <Card className="dashboard-card" style={{ padding: 0 }}>
+            <Card.Body className="dashboard-card-body" style={{ padding: '10px 20px' }}>
               <div className="dashboard-card-title">Patients</div>
               <div className="dashboard-card-value">
                 {loadingText || counts.patients}

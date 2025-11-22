@@ -13,6 +13,7 @@ export default function SidebarLayout() {
 
   const [openPatients, setOpenPatients] = useState(false);
   const [openConsultations, setOpenConsultations] = useState(false);
+  const [isSidebarOpen, setISidebarOpen] = useState(false);
 
   const handleLogout = () => {
     dispatch(logoutDoctor());
@@ -26,14 +27,13 @@ export default function SidebarLayout() {
     ({ isActive }) =>
       "sidebar-logout-link" + (isActive ? " active" : "");
 
-
   const subLinkClass =
     ({ isActive }) =>
       "sidebar-sublink" + (isActive ? " active" : "");
 
   return (
     <div className="layout-root">
-      <aside className="sidebar d-flex flex-column justify-content-between">
+      <aside className={`sidebar d-flex flex-column justify-content-between ${isSidebarOpen ? "open" : "close"}`}>
         <div>
           <div className="sidebar-header">
             <img
@@ -48,12 +48,12 @@ export default function SidebarLayout() {
           </div>
 
           <Nav className="flex-column">
-            <NavLink to="/app/dashboard" className={linkClass}>
+            <NavLink to="/app/dashboard" className={linkClass} onClick={() => setISidebarOpen(!isSidebarOpen)}>
               <i className="bi bi-speedometer2" />
               Dashboard
             </NavLink>
 
-            <NavLink to="/app/medicines" className={linkClass}>
+            <NavLink to="/app/medicines" className={linkClass} onClick={() => setISidebarOpen(!isSidebarOpen)}>
               <i className="bi bi-capsule" />
               Medicines
             </NavLink>
@@ -70,14 +70,14 @@ export default function SidebarLayout() {
             </button>
             <Collapse in={openPatients}>
               <div>
-                <NavLink to="/app/patients/new" className={subLinkClass}>
+                <NavLink to="/app/patients/new" className={subLinkClass} onClick={() => setISidebarOpen(!isSidebarOpen)}>
                   <i className="bi bi-person-plus" />
                   New Patient
                 </NavLink>
                 <NavLink
                   to="/app/patients/registered"
                   className={subLinkClass}
-                >
+                  onClick={() => setISidebarOpen(!isSidebarOpen)}>
                   <i className="bi bi-person-badge" />
                   Registered Patients
                 </NavLink>
@@ -99,14 +99,14 @@ export default function SidebarLayout() {
                 <NavLink
                   to="/app/consultations/new"
                   className={subLinkClass}
-                >
+                  onClick={() => setISidebarOpen(!isSidebarOpen)}>
                   <i className="bi bi-pencil-square" />
                   New Prescription
                 </NavLink>
                 <NavLink
                   to="/app/consultations/previous"
                   className={subLinkClass}
-                >
+                  onClick={() => setISidebarOpen(!isSidebarOpen)}>
                   <i className="bi bi-folder2-open" />
                   Previous Consultations
                 </NavLink>
@@ -114,7 +114,7 @@ export default function SidebarLayout() {
             </Collapse>
 
 
-            <NavLink to="/app/inventory" className={linkClass}>
+            <NavLink to="/app/inventory" className={linkClass} onClick={() => setISidebarOpen(!isSidebarOpen)}>
               <i class="bi bi-card-checklist"></i>
               Inventory
             </NavLink>
@@ -137,8 +137,12 @@ export default function SidebarLayout() {
             Welcome:&nbsp;
             <strong>Dr. {user?.name || user?.email}</strong>
           </Navbar.Brand>
-          <Button variant="danger" size="sm" onClick={handleLogout} style={{display:'none'}}>
-            <i class="bi bi-power"></i>
+          <Button onClick={() => setISidebarOpen(!isSidebarOpen)} className="navigation-button">
+            {isSidebarOpen ?
+              <i class="bi bi-x-lg"></i>
+              :
+              <i class="bi bi-list"></i>
+            }
           </Button>
         </Navbar>
 

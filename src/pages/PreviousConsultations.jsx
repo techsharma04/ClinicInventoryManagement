@@ -3,10 +3,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   Form,
-  Table,
-  Pagination,
   Dropdown,
   ButtonGroup,
+  Spinner,
 } from "react-bootstrap";
 import {
   collection,
@@ -23,6 +22,8 @@ import WorkorderPrint from "../components/WorkorderPrint";
 import { useReactToPrint } from "react-to-print";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import DataTable from "../components/DataTable";
+import "../components/styles/table-wrapper.css";
 
 const PAGE_SIZE = 8;
 
@@ -30,6 +31,8 @@ export default function PreviousConsultations() {
   const navigate = useNavigate();
 
   const [workorders, setWorkorders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [woSearch, setWoSearch] = useState("");
   const [woPatientFilter, setWoPatientFilter] = useState("");
   const [woDoctorFilter, setWoDoctorFilter] = useState("");
@@ -48,10 +51,18 @@ export default function PreviousConsultations() {
   // Load workorders
   useEffect(() => {
     const q = query(collection(db, "workorders"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setWorkorders(list);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setWorkorders(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Workorders error:", err);
+        setLoading(false);
+      }
+    );
     return () => unsub();
   }, []);
 
@@ -130,13 +141,11 @@ export default function PreviousConsultations() {
     woPage * PAGE_SIZE
   );
 
-  useEffect(() => setWoPage(1), [
-    woSearch,
-    woPatientFilter,
-    woDoctorFilter,
-    woDateFrom,
-    woDateTo,
-  ]);
+  useEffect(
+    () =>
+      setWoPage(1),
+    [woSearch, woPatientFilter, woDoctorFilter, woDateFrom, woDateTo]
+  );
 
   // Print / PDF effect
   useEffect(() => {
@@ -161,10 +170,9 @@ export default function PreviousConsultations() {
             scale: 2,
             useCORS: true,
             allowTaint: false,
-            backgroundColor: "#ffffff"
+            backgroundColor: "#ffffff",
           });
 
-          // Convert to JPEG instead of PNG (fixes wrong PNG signature error)
           const imgData = canvas.toDataURL("image/jpeg", 1.0);
 
           const pdf = new jsPDF("p", "mm", "a4");
@@ -177,7 +185,7 @@ export default function PreviousConsultations() {
             x: 0,
             y: 0,
             width: pdfWidth,
-            height: pdfHeight
+            height: pdfHeight,
           });
           pdf.save(`Workorder-${workOrderToPrint.orderId}.pdf`);
         } catch (err) {
@@ -217,11 +225,129 @@ export default function PreviousConsultations() {
     }
   };
 
+  const handlePrintDirect = (w) => {
+    setWorkOrderToPrint(w);
+    setPrintAction("print");
+  };
+
+  // Helpers
+  const formatDate = (tsOrStr) => {
+    if (!tsOrStr) return "—";
+    try {
+      const d =
+        typeof tsOrStr.toDate === "function"
+          ? tsOrStr.toDate()
+          : new Date(tsOrStr);
+      if (!d || Number.isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString();
+    } catch {
+      return "—";
+    }
+  };
+
+  const shortMedicinesPreview = (w) => {
+    const meds = w.medicines || [];
+    if (!meds.length) return "No medicines added";
+    const names = meds.map((m) => m.name).filter(Boolean);
+    if (!names.length) return `${meds.length} items`;
+    const firstTwo = names.slice(0, 2).join(", ");
+    if (names.length > 2) {
+      return `${firstTwo} + ${names.length - 2} more`;
+    }
+    return firstTwo;
+  };
+
+  // DataTable columns – card-style row
+  const columns = [
+    {
+      key: "info",
+      title: "Consultation",
+      render: (w) => (
+        <div className="consultation-row">
+          <div className="d-flex align-items-start gap-2">
+            <div className="row-icon">🩺</div>
+            <div>
+              <div className="inv-main-title">
+                #{w.orderId || "—"} &mdash;{" "}
+                {w.patient?.name || "Unknown patient"}
+              </div>
+              <div className="inv-meta">
+                <span>
+                  {w.doctor?.name || w.doctor?.email || "Unknown doctor"}
+                </span>
+                <span>•</span>
+                <span>{w.doctor.role}</span>
+                <span>•</span>
+                <span>{formatDate(w.createdAt)}</span>
+              </div>
+              <div className="small text-muted mt-1">
+                <strong>Medicines:</strong> {shortMedicinesPreview(w)}{" "}
+                <span className="text-muted">
+                  ({(w.medicines || []).length} item
+                  {(w.medicines || []).length === 1 ? "" : "s"})
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      title: "Actions",
+      render: (w) => (
+        <Dropdown as={ButtonGroup} align="end">
+          <Dropdown.Toggle
+            size="sm"
+            variant="outline-secondary"
+            className="custom-dropup-toggle"
+          >
+            <i className="bi bi-plus-circle-dotted"></i>
+          </Dropdown.Toggle>
+
+          <Dropdown.Menu className="custom-dropup-menu">
+            <Dropdown.Item onClick={() => handleEdit(w)}>
+              <i className="bi bi-pencil-square me-2"></i>
+              Edit
+            </Dropdown.Item>
+
+            <Dropdown.Item onClick={() => handlePrintView(w)}>
+              <i className="bi bi-printer me-2"></i>
+              Print View
+            </Dropdown.Item>
+
+            <Dropdown.Item onClick={() => handlePrintDirect(w)}>
+              <i className="bi bi-printer-fill me-2"></i>
+              Direct Print
+            </Dropdown.Item>
+
+            <Dropdown.Item onClick={() => triggerPdf(w)}>
+              <i className="bi bi-file-earmark-pdf me-2"></i>
+              PDF
+            </Dropdown.Item>
+
+            <Dropdown.Divider />
+
+            <Dropdown.Item
+              className="text-danger"
+              onClick={() => handleDelete(w)}
+            >
+              <i className="bi bi-trash me-2"></i>
+              Delete
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown>
+      ),
+    },
+  ];
+
   return (
     <div>
       <Card className="shadow-sm border-0">
         <Card.Body>
           <Card.Title>Previous Consultations</Card.Title>
+
+          {/* FILTERS */}
           <Form className="row g-2 mt-2 mb-3">
             <div className="col-md-3">
               <Form.Control
@@ -263,99 +389,21 @@ export default function PreviousConsultations() {
               />
             </div>
           </Form>
-          <div className="clinic-table-wrapper previous-consultations-table-wrapper">
-            <Table striped bordered={false} hover size="sm" className="clinic-table no-responsive-table">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Patient</th>
-                  <th>Doctor</th>
-                  <th>Date</th>
-                  <th>Medicines</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageData.map((w) => (
-                  <tr key={w.id}>
-                    <td>{w.orderId}</td>
-                    <td>{w.patient?.name}</td>
-                    <td>{w.doctor?.name || w.doctor?.email || "—"}</td>
-                    <td>
-                      {w.createdAt?.toDate
-                        ? w.createdAt.toDate().toLocaleDateString()
-                        : "—"}
-                    </td>
-                    <td>{(w.medicines || []).length} items</td>
-                    <td style={{ textAlign: 'center', position: "relative", overflow: "visible" }}>
-                      <Dropdown
-                        // drop="up"
-                        as={ButtonGroup}
-                        align="end"
-                      >
-                        <Dropdown.Toggle
-                          size="sm"
-                          variant="outline-secondary"
-                          className="custom-dropup-toggle"
-                        >
-                          <i className="bi bi-plus-circle-dotted"></i>
-                        </Dropdown.Toggle>
 
-                        <Dropdown.Menu className="custom-dropup-menu">
-                          <Dropdown.Item onClick={() => handleEdit(w)}>
-                            <i className="bi bi-pencil-square me-2"></i>
-                            Edit
-                          </Dropdown.Item>
-
-                          <Dropdown.Item onClick={() => handlePrintView(w)}>
-                            <i className="bi bi-printer me-2"></i>
-                            Print
-                          </Dropdown.Item>
-
-                          <Dropdown.Item onClick={() => triggerPdf(w)}>
-                            <i className="bi bi-file-earmark-pdf me-2"></i>
-                            PDF
-                          </Dropdown.Item>
-
-                          <Dropdown.Divider />
-
-                          <Dropdown.Item
-                            className="text-danger"
-                            onClick={() => handleDelete(w)}
-                          >
-                            <i className="bi bi-trash me-2"></i>
-                            Delete
-                          </Dropdown.Item>
-                        </Dropdown.Menu>
-                      </Dropdown>
-
-
-                    </td>
-                  </tr>
-                ))}
-                {pageData.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center">
-                      No consultations found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-          </div>
-
-          {pageCount > 1 && (
-            <Pagination>
-              {Array.from({ length: pageCount }).map((_, i) => (
-                <Pagination.Item
-                  key={i}
-                  active={i + 1 === woPage}
-                  onClick={() => setWoPage(i + 1)}
-                >
-                  {i + 1}
-                </Pagination.Item>
-              ))}
-            </Pagination>
+          {/* TABLE */}
+          {loading ? (
+            <div className="p-5 text-center">
+              <Spinner animation="border" />
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={pageData}
+              page={woPage}
+              pageCount={pageCount}
+              onPageChange={setWoPage}
+              emptyMessage="No consultations found"
+            />
           )}
         </Card.Body>
       </Card>

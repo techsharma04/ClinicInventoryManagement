@@ -1,0 +1,198 @@
+.table-container {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: rgba(0, 0, 0, 0.10) 0px 2px 8px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.custom-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;  
+  text-transform: capitalize;
+}
+
+.custom-table thead tr th {
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 12px;
+  color: #444;
+}
+
+.custom-table tbody tr {
+  background: #f9f9f9;
+  transition: 0.15s ease;
+}
+
+.custom-table tbody tr:hover {
+  background: #f0f4ff;
+}
+
+.custom-table tbody tr td {
+  padding: 12px;
+  font-size: 14px;
+  color: #333;
+  vertical-align: middle;
+}
+
+.fw-500 {
+  font-weight: 500;
+}
+
+.text-right {
+  text-align: right;
+}
+.text-center {
+  text-align: center;
+}
+.row-icon {
+  font-size: 20px;
+  opacity: 0.6;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.success {
+  background: #d4ffdf;
+  color: #0b8d31;
+}
+
+.badge.warning {
+  background: #fff2d0;
+  color: #8d610b;
+}
+
+.badge.danger {
+  background: #ffe1e1;
+  color: #c12a2a;
+}
+
+.btn-icon {
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 6px;
+  margin-left: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+  min-width: 50px;
+  color: #000;
+}
+
+.btn-icon:hover {
+  background: #000;
+  color: #fff;
+}
+
+/* Pagination */
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  gap: 6px;
+}
+
+.page-btn {
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.page-btn:hover {
+  background: #eee;
+}
+
+.page-btn.active {
+  background: #000;
+  color: #fff;
+}
+
+.inv-main-title {
+  font-weight: 500;
+  font-size: 14px;
+  color: #222;
+}
+
+.inv-main-strength {
+  font-size: 13px;
+  color: #666;
+  margin-left: 4px;
+}
+
+.inv-meta {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inv-meta-dot {
+  opacity: 0.5;
+}
+
+.inv-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.inv-value {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+
+.datatable-search input {
+  max-width: 280px;
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+
+/* Optional: improves spacing between columns */
+.custom-table td {
+  vertical-align: top;
+  padding: 14px 12px !important;
+}
+
+.inv-main-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.inv-main-strength {
+  font-size: 13px;
+  color: #777;
+  margin-left: 4px;
+}
+
+.inv-meta {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+}
+
+.inv-label {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 2px;
+}
+
+.inv-value {
+  font-size: 14px;
+  font-weight: 500;
+}

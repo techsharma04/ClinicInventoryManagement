@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Card,
   Button,
-  Table,
   Form,
   Badge,
   Spinner,
@@ -25,6 +24,10 @@ import {
 } from "firebase/firestore";
 import { useSelector } from "react-redux";
 import { db } from "../firebase";
+import DataTable from "../components/DataTable";
+import "../components/styles/table-wrapper.css";
+
+const PAGE_SIZE = 8;
 
 export default function Inventory() {
   const { user } = useSelector((s) => s.auth);
@@ -32,6 +35,7 @@ export default function Inventory() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   // Purchase modal
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -60,7 +64,6 @@ export default function Inventory() {
         setLoading(false);
       }
     );
-
     return () => unsub();
   }, []);
 
@@ -68,9 +71,16 @@ export default function Inventory() {
     const term = search.trim().toLowerCase();
     if (!term) return items;
     return items.filter((item) =>
-      item.name.toLowerCase().includes(term)
+      (item.name || "").toLowerCase().includes(term)
     );
   }, [items, search]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const pageData = filteredItems.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+  useEffect(() => setPage(1), [search]);
 
   // Dashboard stats
   const totalItems = items.length;
@@ -84,8 +94,7 @@ export default function Inventory() {
   const nearExpiryCount = useMemo(() => {
     const today = new Date();
     const limit = new Date();
-    limit.setDate(today.getDate() + 30); // next 30 days
-
+    limit.setDate(today.getDate() + 30);
     return items.filter((i) => {
       if (!i.nextExpiryDate) return false;
       try {
@@ -149,7 +158,7 @@ export default function Inventory() {
         change,
         oldStock,
         newStock,
-        reason, // "manual_adjust" or "purchase"
+        reason,
         userId: user?.uid || null,
         userName: user?.name || "",
         createdAt: serverTimestamp(),
@@ -163,20 +172,16 @@ export default function Inventory() {
   // Manual adjust stock
   const handleAdjustStock = async (item, change) => {
     if (!change) return;
-
     const oldStock = item.currentStock ?? 0;
     const newStock = oldStock + change;
-
     if (newStock < 0) {
       alert("Stock cannot go below zero.");
       return;
     }
-
     try {
       await updateDoc(doc(db, "inventory", item.id), {
         currentStock: increment(change),
       });
-
       await writeInventoryLog({
         inventoryId: item.id,
         medicineId: item.medicineId,
@@ -192,7 +197,7 @@ export default function Inventory() {
     }
   };
 
-  // PURCHASE MODAL HANDLERS
+  // PURCHASE MODAL
   const openPurchaseModalForItem = (item) => {
     setPurchaseForm({
       inventoryId: item.id,
@@ -244,19 +249,15 @@ export default function Inventory() {
     }
 
     setSavingPurchase(true);
-
     try {
       const invRef = doc(db, "inventory", inventoryId);
       const invSnap = await getDoc(invRef);
       const invData = invSnap.data() || {};
-
       const currentStock = invData.currentStock ?? 0;
       const newStock = currentStock + qtyNum;
-
       const expDate = new Date(expiryDate);
       let updates = { currentStock: newStock };
 
-      // Update nextExpiryDate to the earliest batch expiry
       if (expDate instanceof Date && !isNaN(expDate.getTime())) {
         if (!invData.nextExpiryDate) {
           updates.nextExpiryDate = expDate;
@@ -283,7 +284,7 @@ export default function Inventory() {
         medicineId: selectedItem.medicineId,
         name: selectedItem.name,
         strength: selectedItem.strength,
-        form: selectedItem.form || selectedItem.form || "",
+        form: selectedItem.form || "",
         category: selectedItem.category || "",
         quantity: qtyNum,
         batchNumber: batchNumber.trim(),
@@ -297,7 +298,6 @@ export default function Inventory() {
         },
       });
 
-      // Log
       await writeInventoryLog({
         inventoryId,
         medicineId: selectedItem.medicineId,
@@ -318,6 +318,119 @@ export default function Inventory() {
     }
   };
 
+  // DataTable columns
+  const columns = [
+    {
+      key: "icon",
+      title: "",
+      render: () => <div className="row-icon">📦</div>,
+    },
+    {
+      key: "medicine",
+      title: "Medicine",
+      render: (item) => (
+        <>
+          <div className="inv-main-title">
+            {item.name}{" "}
+            <span className="inv-main-strength">{item.strength}</span>
+          </div>
+          <div className="inv-meta">
+            <span>{item.form || "-"}</span>
+            <span>•</span>
+            <span>{item.category || "-"}</span>
+          </div>
+        </>
+      ),
+    },
+    {
+      key: "opening",
+      title: "Opening",
+      render: (item) => (
+        <>
+          <div className="inv-label">Opening</div>
+          <div className="inv-value">{item.openingStock ?? "-"}</div>
+        </>
+      ),
+    },
+    {
+      key: "current",
+      title: "Current",
+      align: "text-center",
+      render: (item) => {
+        const current = item.currentStock ?? 0;
+        const isLow = current > 0 && current <= 5;
+        const isOut = current <= 0;
+        return (
+          <>
+            <div className="inv-label">Current</div>
+            <div className="inv-value">
+              {isOut ? (
+                <span className="badge danger">0 (Out)</span>
+              ) : isLow ? (
+                <span className="badge warning">{current} Low</span>
+              ) : (
+                <span className="badge success">{current}</span>
+              )}
+            </div>
+          </>
+        );
+      },
+    },
+    {
+      key: "expiry",
+      title: "Nearest Expiry",
+      align: "text-center",
+      render: (item) => {
+        const label = getExpiryLabel(item);
+        const near = isNearExpiry(item);
+        if (label === "-") return "-";
+        return (
+          <>
+            <div className="inv-label">Expiry</div>
+            <div className="inv-value">
+              {near ? (
+                <span className="badge warning">{label}</span>
+              ) : (
+                <span className="badge success">{label}</span>
+              )}
+            </div>
+          </>
+        );
+      },
+    },
+    {
+      key: "actions",
+      title: "Adjust / Purchase",
+      align: "text-center",
+      render: (item) => {
+        const current = item.currentStock ?? 0;
+        return (
+          <>
+            <button
+              className="btn-icon"
+              disabled={current <= 0}
+              onClick={() => handleAdjustStock(item, -1)}
+            >
+              -1
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => handleAdjustStock(item, +1)}
+            >
+              +1
+            </button>
+            <button
+              className="btn-icon"
+              onClick={() => openPurchaseModalForItem(item)}
+            >
+              Purchase
+            </button>
+          </>
+        );
+      },
+    },
+  ];
+
   return (
     <div>
       <h4 className="mb-4">Inventory Management</h4>
@@ -325,7 +438,7 @@ export default function Inventory() {
       {/* DASHBOARD CARDS */}
       <Row className="mb-3 g-3">
         <Col md={3} sm={6}>
-          <Card className="shadow-sm border-0">
+          <Card className="shadow-sm border-0 dashboard-card">
             <Card.Body>
               <div className="text-muted small">Total Items</div>
               <div className="fs-4 fw-semibold">{totalItems}</div>
@@ -333,9 +446,9 @@ export default function Inventory() {
           </Card>
         </Col>
         <Col md={3} sm={6}>
-          <Card className="shadow-sm border-0">
+          <Card className="shadow-sm border-0 dashboard-card">
             <Card.Body>
-              <div className="text-muted small">Low Stock (&le; 5)</div>
+              <div className="text-muted small">Low Stock (≤ 5)</div>
               <div className="fs-4 fw-semibold text-warning">
                 {lowStockCount}
               </div>
@@ -343,7 +456,7 @@ export default function Inventory() {
           </Card>
         </Col>
         <Col md={3} sm={6}>
-          <Card className="shadow-sm border-0">
+          <Card className="shadow-sm border-0 dashboard-card">
             <Card.Body>
               <div className="text-muted small">Out of Stock</div>
               <div className="fs-4 fw-semibold text-danger">
@@ -353,9 +466,9 @@ export default function Inventory() {
           </Card>
         </Col>
         <Col md={3} sm={6}>
-          <Card className="shadow-sm border-0">
+          <Card className="shadow-sm border-0 dashboard-card">
             <Card.Body>
-              <div className="text-muted small">Near Expiry (&lt;= 30 days)</div>
+              <div className="text-muted small">Near Expiry (≤ 30 days)</div>
               <div className="fs-4 fw-semibold text-primary">
                 {nearExpiryCount}
               </div>
@@ -364,112 +477,32 @@ export default function Inventory() {
         </Col>
       </Row>
 
-      {/* SEARCH */}
-      <Card className="p-3 shadow-sm border-0 mb-3">
-        <Row className="align-items-center g-2">
-          <Col md={6}>
-            <Form.Control
-              placeholder="Search medicine by name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </Col>
-          <Col className="text-md-end text-start">
-            {/* Optional: a generic button to open purchase modal and then pick medicine from dropdown there */}
-          </Col>
-        </Row>
-      </Card>
-
       {/* TABLE */}
       <Card className="shadow-sm border-0">
-        <Card.Body className="p-0">
+        <Card.Body>
+          <Row className="align-items-center g-2 pb-3">
+            <Col md={6}>
+              <Form.Control
+                placeholder="Search medicine by name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </Col>
+            <Col className="text-md-end text-start" />
+          </Row>
           {loading ? (
             <div className="p-5 text-center">
               <Spinner animation="border" />
             </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="p-4 text-center text-muted">
-              No inventory records found.
-            </div>
           ) : (
-            <Table responsive hover className="mb-0">
-              <thead className="bg-light">
-                <tr>
-                  <th>Medicine</th>
-                  <th>Strength</th>
-                  <th>Form</th>
-                  <th>Category</th>
-                  <th>Opening Stock</th>
-                  <th>Current Stock</th>
-                  <th>Nearest Expiry</th>
-                  <th>Adjust / Purchase</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => {
-                  const current = item.currentStock ?? 0;
-                  const isLow = current > 0 && current <= 5;
-                  const isOut = current <= 0;
-                  const nearExp = isNearExpiry(item);
-
-                  return (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td>{item.strength}</td>
-                      <td>{item.form || "-"}</td>
-                      <td>{item.category || "-"}</td>
-                      <td>{item.openingStock ?? "-"}</td>
-                      <td>
-                        {isOut ? (
-                          <Badge bg="danger">0 (Out)</Badge>
-                        ) : isLow ? (
-                          <Badge bg="warning" text="dark">
-                            {current} Low
-                          </Badge>
-                        ) : (
-                          <Badge bg="success">{current}</Badge>
-                        )}
-                      </td>
-                      <td>
-                        {nearExp ? (
-                          <Badge bg="warning" text="dark">
-                            {getExpiryLabel(item)}
-                          </Badge>
-                        ) : (
-                          getExpiryLabel(item)
-                        )}
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline-danger"
-                            onClick={() => handleAdjustStock(item, -1)}
-                            disabled={current <= 0}
-                          >
-                            -1
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => handleAdjustStock(item, +1)}
-                          >
-                            +1
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline-success"
-                            onClick={() => openPurchaseModalForItem(item)}
-                          >
-                            Purchase
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
+            <DataTable
+              columns={columns}
+              data={pageData}
+              page={page}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              emptyMessage="No inventory records found."
+            />
           )}
         </Card.Body>
       </Card>

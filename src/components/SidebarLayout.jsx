@@ -90,17 +90,6 @@ export default function SidebarLayout() {
         }}
         transition={{ duration: 0.25, ease: "easeInOut" }}
       >
-        <Button
-          onClick={toggleSidebar}
-          className="navigation-button-bottom"
-          aria-label="Toggle navigation"
-        >
-          {isSidebarExpanded ? (
-            <i class="bi bi-chevron-double-left"></i>
-          ) : (
-            <i class="bi bi-chevron-double-right"></i>
-          )}
-        </Button>
         <div>
           <div className="sidebar-header">
             <img
@@ -177,7 +166,30 @@ export default function SidebarLayout() {
                 )}
               </div>
             </Collapse>
-
+            <div className={`${isSidebarExpanded && "display-none"}`}>
+              {withTooltip(
+                "New Patient",
+                <NavLink
+                  to="/app/patients/new"
+                  className={subLinkClass}
+                  onClick={handleNavClick}
+                >
+                  <i className="bi bi-person-plus" />
+                  <span className="link-text">New Patient</span>
+                </NavLink>
+              )}
+              {withTooltip(
+                "Registered Patients",
+                <NavLink
+                  to="/app/patients/registered"
+                  className={subLinkClass}
+                  onClick={handleNavClick}
+                >
+                  <i className="bi bi-person-badge" />
+                  <span className="link-text">Registered Patients</span>
+                </NavLink>
+              )}
+            </div>
             {/* Consultations group */}
             {withTooltip(
               "Consultations",
@@ -221,6 +233,31 @@ export default function SidebarLayout() {
               </div>
             </Collapse>
 
+            <div className={`${isSidebarExpanded && "display-none"}`}>
+              {withTooltip(
+                "New Prescription",
+                <NavLink
+                  to="/app/consultations/new"
+                  className={subLinkClass}
+                  onClick={handleNavClick}
+                >
+                  <i className="bi bi-pencil-square" />
+                  <span className="link-text">New Prescription</span>
+                </NavLink>
+              )}
+              {withTooltip(
+                "Previous Consultations",
+                <NavLink
+                  to="/app/consultations/previous"
+                  className={subLinkClass}
+                  onClick={handleNavClick}
+                >
+                  <i className="bi bi-folder2-open" />
+                  <span className="link-text">Previous Consultations</span>
+                </NavLink>
+              )}
+            </div>
+
             {/* Inventory */}
             {withTooltip(
               "Inventory",
@@ -246,14 +283,25 @@ export default function SidebarLayout() {
             </NavLink>
           )}
         </Nav>
-      </motion.aside>
+      </motion.aside >
 
       {/* Main content */}
-      <div className="main-content">
+      < div className="main-content" >
         <Navbar
           bg="white"
           className="shadow-sm px-3 main-topbar d-flex justify-content-between"
         >
+          <span
+            onClick={toggleSidebar}
+            className="layout-sidebar-btn"
+            aria-label="Toggle navigation"
+          >
+            {isSidebarExpanded ? (
+              <i class="bi bi-layout-sidebar-inset-reverse"></i>
+            ) : (
+              <i class="bi bi-layout-sidebar-inset"></i>
+            )}
+          </span>
           <Navbar.Brand className="small">
             Welcome:&nbsp;
             <strong>Dr. {user?.name || user?.email}</strong>
@@ -275,7 +323,7 @@ export default function SidebarLayout() {
         <main className="content-inner">
           <Outlet />
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

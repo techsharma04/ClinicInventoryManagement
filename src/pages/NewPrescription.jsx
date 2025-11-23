@@ -20,13 +20,23 @@ import {
   updateDoc,
   getDoc,
   increment,
+  where,
 } from "firebase/firestore";
 import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import { db } from "../firebase";
 
 const DOSAGE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-const TIMES_OPTIONS = ["Once Daily", "Twice Daily", "Thrice Daily", "Four times in a day", "Five times in a day", "Six times in a day", "Bedtime"," Empty Stomach"];
+const TIMES_OPTIONS = [
+  "Once Daily",
+  "Twice Daily",
+  "Thrice Daily",
+  "Four times in a day",
+  "Five times in a day",
+  "Six times in a day",
+  "Bedtime",
+  "Empty Stomach",
+];
 
 const TIMES_NUMERIC = {
   "Once Daily": 1,
@@ -35,8 +45,8 @@ const TIMES_NUMERIC = {
   "Four times in a day": 4,
   "Five times in a day": 5,
   "Six times in a day": 6,
-  "Bedtime": 1,
-  "Empty Stomach": 1
+  Bedtime: 1,
+  "Empty Stomach": 1,
 };
 
 const MEDICINE_CATEGORIES = [
@@ -67,25 +77,45 @@ function buildPattern(dosageCount, timesPerDay) {
   let base = [];
 
   switch (timesPerDay) {
-    case "Once Daily": base = ["1", "x", "x"]; break;
-    case "Twice Daily": base = ["1", "x", "1"]; break;
-    case "Thrice Daily": base = ["1", "1", "1"]; break;
-    case "Four times in a day": base = ["1", "1", "1", "1"]; break;
-    case "Five times in a day": base = ["1", "1", "1", "1", "1"]; break;
-    case "Six times in a day": base = ["1", "1", "1", "1", "1", "1"]; break;
-    case "Bedtime": base = ["x", "x", "1"]; break;
-    case "Empty Stomach": base = ["1", "x", "x"]; break;
-    default: base = ["1"];
+    case "Once Daily":
+      base = ["1", "x", "x"];
+      break;
+    case "Twice Daily":
+      base = ["1", "x", "1"];
+      break;
+    case "Thrice Daily":
+      base = ["1", "1", "1"];
+      break;
+    case "Four times in a day":
+      base = ["1", "1", "1", "1"];
+      break;
+    case "Five times in a day":
+      base = ["1", "1", "1", "1", "1"];
+      break;
+    case "Six times in a day":
+      base = ["1", "1", "1", "1", "1", "1"];
+      break;
+    case "Bedtime":
+      base = ["x", "x", "1"];
+      break;
+    case "Empty Stomach":
+      base = ["1", "x", "x"];
+      break;
+    default:
+      base = ["1"];
   }
 
-  return base.map(slot => (slot === "1" ? String(d) : "x")).join("--");
+  return base.map((slot) => (slot === "1" ? String(d) : "x")).join("--");
 }
 
 export default function NewPrescription() {
   const navigate = useNavigate();
   const { user } = useSelector((s) => s.auth);
   const location = useLocation();
-  const { patientId, workorderId } = location.state || {};
+  const {
+    patientId,
+    workorderId,
+  } = location.state || {};
 
   // Patients list + selection
   const [patients, setPatients] = useState([]);
@@ -116,6 +146,16 @@ export default function NewPrescription() {
     stock: "",
   });
 
+  // Previous visit modal state (for Revisit Entry)
+  const [previousVisit, setPreviousVisit] = useState(null);
+  const [prevVisitLoading, setPrevVisitLoading] = useState(false);
+  const [showPrevVisitModal, setShowPrevVisitModal] = useState(false);
+  const [lastVisitOrderId, setLastVisitOrderId] = useState("");
+  const [lastVisitWorkorderId, setLastVisitWorkorderId] = useState("");
+  // All previous visits for selected patient (history section)
+  const [patientVisits, setPatientVisits] = useState([]);
+  const [patientVisitsLoading, setPatientVisitsLoading] = useState(false);
+
   // Load patients
   useEffect(() => {
     const q = query(collection(db, "patients"), orderBy("createdAt", "desc"));
@@ -132,7 +172,7 @@ export default function NewPrescription() {
     });
   }, []);
 
-  // If coming from NewPatient
+  // If coming from NewPatient or Revisit flow (patientId in state)
   useEffect(() => {
     if (patientId && patients.length) {
       const p = patients.find((p) => p.id === patientId);
@@ -140,7 +180,7 @@ export default function NewPrescription() {
     }
   }, [patientId, patients]);
 
-  // Editing mode
+  // Editing mode (when opening an existing workorder directly)
   useEffect(() => {
     const load = async () => {
       if (!workorderId) return;
@@ -156,7 +196,7 @@ export default function NewPrescription() {
       const pat = data.patient;
       setSelectedPatient(pat);
 
-      const meds = data.medicines.map((m) => ({
+      const meds = (data.medicines || []).map((m) => ({
         ...m,
         pattern: m.pattern || buildPattern(m.dosageCount, m.timesPerDay),
       }));
@@ -166,11 +206,44 @@ export default function NewPrescription() {
     load();
   }, [workorderId]);
 
+  // 🔁 Load ALL previous visits for the selected patient (history section)
+  useEffect(() => {
+    if (!selectedPatient || !selectedPatient.id) {
+      setPatientVisits([]);
+      return;
+    }
+
+    setPatientVisitsLoading(true);
+    const q = query(
+      collection(db, "workorders"),
+      where("patient.id", "==", selectedPatient.id),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setPatientVisits(list);
+        setLastVisitOrderId(list[0].orderId);
+        setLastVisitWorkorderId(list[0].id);
+        setPatientVisitsLoading(false);
+      },
+      (err) => {
+        console.error("Previous visits error:", err);
+        setPatientVisits([]);
+        setPatientVisitsLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [selectedPatient]);
+
   const filteredPatientSuggestions = useMemo(() => {
     const t = patientSearch.trim().toLowerCase();
     if (!t) return [];
     return patients
-      .filter((p) => p.name.toLowerCase().includes(t))
+      .filter((p) => (p.name || "").toLowerCase().includes(t))
       .slice(0, 8);
   }, [patientSearch, patients]);
 
@@ -178,7 +251,7 @@ export default function NewPrescription() {
     const t = medSearch.trim().toLowerCase();
     if (!t) return [];
     return medicines
-      .filter((m) => m.name.toLowerCase().includes(t))
+      .filter((m) => (m.name || "").toLowerCase().includes(t))
       .slice(0, 5);
   }, [medSearch, medicines]);
 
@@ -299,7 +372,6 @@ export default function NewPrescription() {
         stock: "",
       });
       setMedSearch("");
-
     } catch (err) {
       console.error(err);
       alert("Failed to save medicine");
@@ -355,6 +427,38 @@ export default function NewPrescription() {
 
   const handleCancel = () => navigate("/app/consultations/previous");
 
+  const formatDateTime = (ts) => {
+    if (!ts) return "—";
+    try {
+      const d =
+        typeof ts.toDate === "function" ? ts.toDate() : new Date(ts);
+      if (!d || Number.isNaN(d.getTime())) return "—";
+      return d.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return "—";
+    }
+  };
+
+  const handleSelectedPatient = () => {
+    setSelectedPatient(null);
+    setLastVisitOrderId(null);
+    setLastVisitWorkorderId(null);
+  }
+
+  const handlePreviousVisits = (v) => {
+    setPreviousVisit(v);
+    setShowPrevVisitModal(true)
+  }
+
+
   // ---------- SUBMIT PRESCRIPTION ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -376,6 +480,7 @@ export default function NewPrescription() {
       }));
 
       if (editingWorkorder) {
+        // 🔁 Update existing workorder
         await updateDoc(doc(db, "workorders", editingWorkorder.id), {
           patient: selectedPatient,
           medicines: medsPayload,
@@ -388,6 +493,7 @@ export default function NewPrescription() {
           updatedAt: serverTimestamp(),
         });
       } else {
+        // 🆕 New workorder (including Revisit Entry scenario)
         const orderId = await getNextOrderId();
         await addDoc(collection(db, "workorders"), {
           orderId,
@@ -400,6 +506,9 @@ export default function NewPrescription() {
             email: user.email,
           },
           createdAt: serverTimestamp(),
+          // 🔁 store previous visit reference if this was opened via "Revisit Entry"
+          lastVisitOrderId: lastVisitOrderId,
+          lastVisitWorkorderId: lastVisitWorkorderId,
         });
       }
 
@@ -419,13 +528,15 @@ export default function NewPrescription() {
 
   return (
     <div>
-      <h4 className="mb-3">
-        {editingWorkorder ? "Edit Prescription" : "New Prescription"}
+      <h4 className="mb-3 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+        <span>
+          {editingWorkorder ? "Edit Prescription" : "New Prescription"}
+        </span>
       </h4>
+
       <Card className="shadow-sm border-0 mb-4">
         <Card.Body>
           <Form onSubmit={handleSubmit}>
-
             {/* PATIENT SEARCH */}
             {!selectedPatient && (
               <Form.Group className="mb-3 position-relative">
@@ -433,7 +544,10 @@ export default function NewPrescription() {
                 <Form.Control
                   placeholder="Start typing patient name..."
                   value={patientSearch}
-                  onChange={(e) => setPatientSearch(e.target.value)}
+                  onChange={(e) => {
+                    setPatientSearch(e.target.value);
+                    setPatientError("");
+                  }}
                   isInvalid={!!patientError}
                 />
                 <Form.Control.Feedback type="invalid">
@@ -443,18 +557,35 @@ export default function NewPrescription() {
                 {patientSearch.trim() && (
                   <ListGroup
                     className="position-absolute w-100"
-                    style={{ top: "100%", zIndex: 20, maxHeight: 220, overflowY: "auto"}}
+                    style={{
+                      top: "100%",
+                      zIndex: 20,
+                      maxHeight: 220,
+                      overflowY: "auto",
+                    }}
                   >
                     {filteredPatientSuggestions.length > 0 ? (
                       filteredPatientSuggestions.map((p) => (
-                        <ListGroup.Item key={p.id} action onClick={() => setSelectedPatient(p)} style={{textTransform:'capitalize' }}>
+                        <ListGroup.Item
+                          key={p.id}
+                          action
+                          onClick={() => {
+                            setSelectedPatient(p);
+                            setPatientSearch("");
+                            setPatientError("");
+                          }}
+                          style={{ textTransform: "capitalize" }}
+                        >
                           {p.name} ({p.age}y / {p.sex})
                         </ListGroup.Item>
                       ))
                     ) : (
                       <ListGroup.Item className="d-flex justify-content-between">
                         No patient found
-                        <Button size="sm" onClick={() => navigate("/app/patients/new")}>
+                        <Button
+                          size="sm"
+                          onClick={() => navigate("/app/patients/new")}
+                        >
                           Add Patient
                         </Button>
                       </ListGroup.Item>
@@ -466,23 +597,23 @@ export default function NewPrescription() {
 
             {/* PATIENT BOX */}
             {selectedPatient && (
-              <Card className="mb-3 p-2 bg-light border-0">
-                <div className="d-flex justify-content-between">
-                  <div style={{textTransform:"capitalize"}}>
-                    <strong>{selectedPatient.name}</strong>
-                    <div className="small text-muted">
-                      {selectedPatient.age} years old / {selectedPatient.sex} from {selectedPatient.address}
+              <>
+                <Card className="mb-3 p-3 bg-light border-0" style={{ boxShadow: 'none!important' }}>
+                  <div className="d-flex justify-content-between">
+                    <div style={{ textTransform: "capitalize" }}>
+                      <strong>{selectedPatient.name}</strong>
+                      <div className="small text-muted">
+                        {selectedPatient.age} years old / {selectedPatient.sex}{" "}
+                        from {selectedPatient.address}
+                      </div>
                     </div>
-                  </div>
 
-                  <Button
-                    size="sm"
-                    onClick={() => setSelectedPatient(null)}
-                  >
-                    Change
-                  </Button>
-                </div>
-              </Card>
+                    <Button size="sm" onClick={handleSelectedPatient}>
+                      Change
+                    </Button>
+                  </div>
+                </Card>
+              </>
             )}
 
             {/* DIAGNOSIS */}
@@ -521,7 +652,10 @@ export default function NewPrescription() {
                         action
                         onClick={() => handleAddMed(m)}
                       >
-                        {m.name} <span className="text-muted small">{m.strength}</span>
+                        {m.name}{" "}
+                        <span className="text-muted small">
+                          {m.strength}
+                        </span>
                       </ListGroup.Item>
                     ))
                   ) : (
@@ -530,7 +664,10 @@ export default function NewPrescription() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          setNewMed((p) => ({ ...p, name: medSearch.trim() }));
+                          setNewMed((p) => ({
+                            ...p,
+                            name: medSearch.trim(),
+                          }));
                           setShowAddMedModal(true);
                         }}
                       >
@@ -556,7 +693,9 @@ export default function NewPrescription() {
                         size="sm"
                         variant="outline-danger"
                         onClick={() =>
-                          setSelectedMeds((prev) => prev.filter((x) => x.id !== m.id))
+                          setSelectedMeds((prev) =>
+                            prev.filter((x) => x.id !== m.id)
+                          )
                         }
                       >
                         Remove
@@ -571,7 +710,11 @@ export default function NewPrescription() {
                           size="sm"
                           value={m.dosageCount}
                           onChange={(e) =>
-                            updateMedField(m.id, "dosageCount", Number(e.target.value))
+                            updateMedField(
+                              m.id,
+                              "dosageCount",
+                              Number(e.target.value)
+                            )
                           }
                         >
                           {DOSAGE_OPTIONS.map((n) => (
@@ -621,14 +764,23 @@ export default function NewPrescription() {
                           min="1"
                           value={m.days}
                           onChange={(e) =>
-                            updateMedField(m.id, "days", Number(e.target.value))
+                            updateMedField(
+                              m.id,
+                              "days",
+                              Number(e.target.value)
+                            )
                           }
                         />
                       </div>
 
                       <div className="col-md-3">
                         <Form.Label className="small">Pattern</Form.Label>
-                        <Form.Control size="sm" value={m.pattern} disabled readOnly />
+                        <Form.Control
+                          size="sm"
+                          value={m.pattern}
+                          disabled
+                          readOnly
+                        />
                       </div>
                     </div>
 
@@ -655,15 +807,80 @@ export default function NewPrescription() {
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? "Saving..." : editingWorkorder ? "Update Case" : "Create Case"}
+                {saving
+                  ? "Saving..."
+                  : editingWorkorder
+                    ? "Update Case"
+                    : "Create Case"}
               </Button>
             </div>
           </Form>
         </Card.Body>
       </Card>
 
+      {/* 🔁 Previous visits list for this patient */}
+      {patientVisits.length !== 0 && (
+        <Card className="mb-4 border-0">
+          <Card.Body>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 className="mb-0">Previous Visits</h6>
+              <span className="small text-muted">
+                {patientVisitsLoading
+                  ? "Loading..."
+                  : `${patientVisits.length} visit${patientVisits.length === 1 ? "" : "s"
+                  }`}
+              </span>
+            </div>
+
+            {patientVisitsLoading ? (
+              <div className="small text-muted">Loading...</div>
+            ) : patientVisits.length === 0 ? (
+              <div className="small text-muted">
+                No previous visits recorded for this patient.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "90px" }}>Order #</th>
+                      <th>Date / Time</th>
+                      <th>Doctor</th>
+                      <th>Summary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patientVisits.slice(0, 10).map((v) => (
+                      <tr key={v.id} onClick={() => handlePreviousVisits(v)} style={{ cursor: 'pointer' }}>
+                        <td>#{v.orderId || "—"}</td>
+                        <td>{formatDateTime(v.createdAt)}</td>
+                        <td>
+                          {v.doctor?.name ||
+                            v.doctor?.email ||
+                            "Unknown doctor"}
+                        </td>
+                        <td className="small text-muted">
+                          {v.instructions
+                            ? v.instructions.slice(0, 80) +
+                            (v.instructions.length > 80 ? "..." : "")
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+      )}
+
       {/* ADD NEW MEDICINE MODAL */}
-      <Modal show={showAddMedModal} onHide={() => setShowAddMedModal(false)} centered>
+      <Modal
+        show={showAddMedModal}
+        onHide={() => setShowAddMedModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>Add New Medicine</Modal.Title>
         </Modal.Header>
@@ -673,7 +890,9 @@ export default function NewPrescription() {
             <Form.Label>Medicine Name</Form.Label>
             <Form.Control
               value={newMed.name}
-              onChange={(e) => setNewMed((p) => ({ ...p, name: e.target.value }))}
+              onChange={(e) =>
+                setNewMed((p) => ({ ...p, name: e.target.value }))
+              }
             />
           </Form.Group>
 
@@ -681,7 +900,9 @@ export default function NewPrescription() {
             <Form.Label>Category</Form.Label>
             <Form.Select
               value={newMed.category}
-              onChange={(e) => setNewMed((p) => ({ ...p, category: e.target.value }))}
+              onChange={(e) =>
+                setNewMed((p) => ({ ...p, category: e.target.value }))
+              }
             >
               {MEDICINE_CATEGORIES.map((c) => (
                 <option key={c}>{c}</option>
@@ -693,7 +914,9 @@ export default function NewPrescription() {
             <Form.Label>Form</Form.Label>
             <Form.Select
               value={newMed.dosageForm}
-              onChange={(e) => setNewMed((p) => ({ ...p, dosageForm: e.target.value }))}
+              onChange={(e) =>
+                setNewMed((p) => ({ ...p, dosageForm: e.target.value }))
+              }
             >
               <option>Tablet</option>
               <option>Syrup</option>
@@ -710,17 +933,21 @@ export default function NewPrescription() {
             <Form.Label>Strength</Form.Label>
             <Form.Control
               value={newMed.strength}
-              onChange={(e) => setNewMed((p) => ({ ...p, strength: e.target.value }))}
+              onChange={(e) =>
+                setNewMed((p) => ({ ...p, strength: e.target.value }))
+              }
             />
-            {COMMON_STRENGTHS_BY_FORM[newMed.dosageForm]?.length > 0 && (
+            {currentStrengthSuggestions.length > 0 && (
               <div className="d-flex flex-wrap gap-2 mt-2">
-                {COMMON_STRENGTHS_BY_FORM[newMed.dosageForm].map((s) => (
+                {currentStrengthSuggestions.map((s) => (
                   <Badge
                     key={s}
                     bg="light"
                     text="dark"
                     style={{ cursor: "pointer" }}
-                    onClick={() => setNewMed((p) => ({ ...p, strength: s }))}
+                    onClick={() =>
+                      setNewMed((p) => ({ ...p, strength: s }))
+                    }
                   >
                     {s}
                   </Badge>
@@ -735,7 +962,9 @@ export default function NewPrescription() {
               type="number"
               min="0"
               value={newMed.stock}
-              onChange={(e) => setNewMed((p) => ({ ...p, stock: e.target.value }))}
+              onChange={(e) =>
+                setNewMed((p) => ({ ...p, stock: e.target.value }))
+              }
             />
           </Form.Group>
         </Modal.Body>
@@ -748,6 +977,86 @@ export default function NewPrescription() {
             {savingMed ? "Saving..." : "Save Medicine"}
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* 🔁 PREVIOUS VISIT MODAL (for Revisit Entry badge) */}
+      <Modal
+        show={showPrevVisitModal}
+        onHide={() => setShowPrevVisitModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Previous Visit — #{previousVisit?.orderId}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {prevVisitLoading ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : !previousVisit ? (
+            <div className="text-muted small">
+              Previous visit details are not available.
+            </div>
+          ) : (
+            <>
+              <div className="mb-3">
+                <div className="fw-semibold">
+                  {previousVisit.patient?.name || "Unknown patient"}
+                </div>
+                <div className="small text-muted">
+                  Visited on {formatDateTime(previousVisit.createdAt)}
+                </div>
+                {previousVisit.instructions && (
+                  <div className="mt-2">
+                    <strong>Diagnosis / Notes:</strong>
+                    <div className="small">
+                      {previousVisit.instructions}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <h6 className="mb-2">Prescribed Medicines</h6>
+              {(!previousVisit.medicines ||
+                previousVisit.medicines.length === 0) && (
+                  <div className="text-muted small">No medicines recorded.</div>
+                )}
+              {previousVisit.medicines &&
+                previousVisit.medicines.length > 0 && (
+                  <div className="table-scroll">
+                    <table className="table table-sm mb-0 custom-table">
+                      <thead>
+                        <tr>
+                          <th>Medicine</th>
+                          <th>Strength</th>
+                          <th>Form</th>
+                          <th>Pattern</th>
+                          <th>Times / Day</th>
+                          <th>Days</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previousVisit.medicines.map((m) => (
+                          <tr key={m.id}>
+                            <td>{m.name}</td>
+                            <td>{m.strength}</td>
+                            <td>{m.dosageForm}</td>
+                            <td>
+                              {m.pattern ||
+                                buildPattern(m.dosageCount, m.timesPerDay)}
+                            </td>
+                            <td>{m.timesPerDay}</td>
+                            <td>{m.days}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+            </>
+          )}
+        </Modal.Body>
       </Modal>
     </div>
   );

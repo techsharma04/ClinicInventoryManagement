@@ -50,26 +50,6 @@
   padding: 0;
 }
 
-.navigation-button-bottom {
-  background: #050b1d !important;
-  text-decoration: none !important;
-  border: 2px solid white !important;
-  color: white !important;
-  border-radius: 50% !important;
-  position: absolute !important;
-  width: 40px !important;
-  height: 36px !important;
-  padding: 0 0 0 3px !important;
-  z-index: 9 !important;
-  right: -25px !important;
-  bottom: 150px !important;
-  font-size: 15px !important;
-  display: flex !important;
-  justify-content: flex-start !important;
-  align-items: center !important;
-
-}
-
 /* ---------- SIDEBAR ---------- */
 
 .sidebar {
@@ -81,18 +61,14 @@
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow-y: auto;
   transition: width 0.25s ease;
 }
 
-.sidebar.expanded {
-  /* full width, handled by framer-motion too */
+.layout-sidebar-btn{
+  font-size: 22px;
+  color: #050b1d;
+  
 }
-
-.sidebar.collapsed {
-  /* narrow width, handled by framer-motion too */
-}
-
 .sidebar::-webkit-scrollbar {
   width: 6px;
 }
@@ -491,6 +467,10 @@ table.clinic-table th {
   }
 }
 
+.dropdown-divider{
+  border: 1px solid #eee;
+}
+
 /* ---------- RESPONSIVE ---------- */
 
 @media (max-width: 991px) {
@@ -528,6 +508,17 @@ table.clinic-table th {
 
   .main-content {
     min-height: 100vh;
+  }
+
+  .dashboard-container{
+    display: flex;
+    flex-direction: column-reverse;
+    row-gap: 30px;
+  }
+  .graph-visitor-table{
+    display: flex;
+    flex-direction: column-reverse;
+    row-gap: 30px;
   }
 }
 

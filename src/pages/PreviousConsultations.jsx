@@ -51,7 +51,6 @@ export default function PreviousConsultations() {
     openUp: false,
   });
 
-
   const handlePrintSpecific = useReactToPrint({
     contentRef: printRef,
   });
@@ -90,6 +89,16 @@ export default function PreviousConsultations() {
     setRowMenu((prev) => ({ ...prev, open: false }));
   };
 
+  // 🔁 Revisit handler
+  const handleRevisit = (w) => {
+    navigate("/app/consultations/new", {
+      state: {
+        patientId: w.patient?.id,
+        lastVisitOrderId: w.orderId,
+        lastVisitWorkorderId: w.id,
+      },
+    });
+  };
 
   const doctorOptions = useMemo(() => {
     const map = new Map();
@@ -159,6 +168,31 @@ export default function PreviousConsultations() {
     woDateFrom,
     woDateTo,
   ]);
+
+  // Determine each patient's latest workorder
+  const latestVisitByPatient = useMemo(() => {
+    const map = new Map();
+
+    workorders.forEach((w) => {
+      const pid = w.patient?.id;
+      if (!pid) return;
+
+      const current = map.get(pid);
+
+      if (!current) {
+        map.set(pid, w);
+      } else {
+        const currTime = current.createdAt?.seconds || 0;
+        const newTime = w.createdAt?.seconds || 0;
+        if (newTime > currTime) {
+          map.set(pid, w);
+        }
+      }
+    });
+
+    return map;
+  }, [workorders]);
+
 
   const pageCount = Math.max(1, Math.ceil(filteredWorkorders.length / PAGE_SIZE));
   const pageData = filteredWorkorders.slice(
@@ -265,21 +299,21 @@ export default function PreviousConsultations() {
           : new Date(tsOrStr);
       if (!d || Number.isNaN(d.getTime())) return "—";
 
-      // Format as: "Nov 20, 2025 at 11:00:24 AM"
-      return d.toLocaleString('en-US', {
-        month: 'short',      // 'Nov'
-        day: 'numeric',      // '20'
-        year: 'numeric',     // '2025'
-        hour: 'numeric',     // '11'
-        minute: '2-digit',   // '00'
-        second: '2-digit',   // '24'
-        hour12: true,        // 'AM/PM'
-      }).replace(',', ' at'); // Replace comma with ' at'
+      return d
+        .toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+        .replace(",", " at");
     } catch {
       return "—";
     }
   };
-
 
   const shortMedicinesPreview = (w) => {
     const meds = w.medicines || [];
@@ -302,14 +336,13 @@ export default function PreviousConsultations() {
         <div className="consultation-row">
           <div className="d-flex align-items-center gap-2">
             <div>
-              <div className="inv-meta">
-                #{w.orderId || "—"}
-              </div>
+              <div className="inv-meta">#{w.orderId || "—"}</div>
             </div>
           </div>
         </div>
       ),
-    }, {
+    },
+    {
       key: "patient",
       title: "Consultation",
       render: (w) => (
@@ -357,7 +390,8 @@ export default function PreviousConsultations() {
           </div>
         </div>
       ),
-    }, {
+    },
+    {
       key: "doctor",
       title: "Attended By",
       render: (w) => (
@@ -382,12 +416,12 @@ export default function PreviousConsultations() {
       render: (w) => (
         <div
           className="actions-menu-trigger-wrapper"
-          onClick={(e) => openRowMenu(e, w)}>
+          onClick={(e) => openRowMenu(e, w)}
+        >
           <i className="bi bi-three-dots-vertical actions-trigger-icon"></i>
         </div>
       ),
-    }
-
+    },
   ];
 
   return (
@@ -469,6 +503,8 @@ export default function PreviousConsultations() {
       >
         <WorkorderPrint ref={printRef} data={workOrderToPrint} />
       </div>
+
+      {/* Row Actions Menu */}
       <ActionMenuPortal
         open={rowMenu.open}
         anchorRect={rowMenu.anchorRect}
@@ -516,6 +552,31 @@ export default function PreviousConsultations() {
         </button>
 
         <hr className="dropdown-divider" />
+
+        {/* ====================== REVISIT ENTRY ======================= */}
+        {(() => {
+          const patientId = rowMenu.item?.patient?.id;
+          const latest = latestVisitByPatient.get(patientId)?.id === rowMenu.item?.id;
+          return (
+            <button
+              className="dt-row-menu-item"
+              disabled={!latest}
+              title={
+                latest
+                  ? "Create a revisit entry"
+                  : "This is not the latest visit"
+              }
+              onClick={() => {
+                if (!latest) return;
+                closeRowMenu();
+                handleRevisit(rowMenu.item);
+              }}
+            >
+              <i className="bi bi-arrow-repeat"></i> Revisit Entry
+            </button>
+          );
+        })()}
+        {/* ============================================================= */}
 
         <button
           className="dt-row-menu-item text-danger"

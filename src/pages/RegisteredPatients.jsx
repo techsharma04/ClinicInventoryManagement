@@ -26,6 +26,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { useNavigate } from "react-router-dom";
 import DataTable from "../components/DataTable";
 import "../components/styles/table-wrapper.css";
 import ActionMenuPortal from "../components/ActionMenuPortal";
@@ -54,6 +55,7 @@ function initialEditForm() {
 export default function RegisteredPatients() {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Filters
   const [nameFilter, setNameFilter] = useState("");
@@ -83,6 +85,7 @@ export default function RegisteredPatients() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuAnchorRect, setMenuAnchorRect] = useState(null);
   const [menuOpenUp, setMenuOpenUp] = useState(false);
+
 
   // Load patients (excluding soft-deleted)
   useEffect(() => {
@@ -331,6 +334,14 @@ export default function RegisteredPatients() {
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  const handleCreateCase = (w) => {
+    navigate("/app/consultations/new", {
+      state: {
+        patientId: w.id
+      },
+    });
   };
 
   // Delete (soft)
@@ -631,9 +642,8 @@ export default function RegisteredPatients() {
                 </button>
 
                 <button
-                  className={`action-item ${
-                    isDeleted ? "disabled" : ""
-                  }`}
+                  className={`action-item ${isDeleted ? "disabled" : ""
+                    }`}
                   disabled={isDeleted}
                   onClick={() => {
                     if (isDeleted) return;
@@ -646,9 +656,32 @@ export default function RegisteredPatients() {
                 </button>
 
                 <button
-                  className={`action-item delete ${
-                    isDeleted ? "disabled" : ""
-                  }`}
+                  className="action-item"
+                  onClick={() => {
+                    closeMenu();
+                    handlePrint(p);
+                  }}
+                >
+                  <i className="bi bi-printer" />
+                  <span>Print Profile</span>
+                </button>
+
+                <hr className="dropdown-divider" />
+
+                <button
+                  className="action-item"
+                  onClick={() => {
+                    closeMenu();
+                    handleCreateCase(p);
+                  }}
+                >
+                  <i className="bi bi-eye" />
+                  <span>Create New Case</span>
+                </button>
+
+                <button
+                  className={`action-item delete ${isDeleted ? "disabled" : ""
+                    }`}
                   disabled={isDeleted}
                   onClick={() => {
                     if (isDeleted) return;
@@ -660,16 +693,6 @@ export default function RegisteredPatients() {
                   <span>Delete</span>
                 </button>
 
-                <button
-                  className="action-item"
-                  onClick={() => {
-                    closeMenu();
-                    handlePrint(p);
-                  }}
-                >
-                  <i className="bi bi-printer" />
-                  <span>Print Profile</span>
-                </button>
               </ActionMenuPortal>
             )}
           </>

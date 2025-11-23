@@ -11,7 +11,7 @@ export default function DataTable({
   emptyMessage = "No records found",
 }) {
   return (
-    <div className="table-container">
+    <div className="table-container"> 
       <div className="table-scroll">
         <table className="custom-table">
           <thead>

@@ -1,5 +1,5 @@
 // src/pages/Medicines.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Form,
@@ -8,6 +8,7 @@ import {
   Card,
   Spinner,
 } from "react-bootstrap";
+import { useSelector } from "react-redux";
 import {
   collection,
   addDoc,
@@ -21,8 +22,11 @@ import {
   getDocs,
   where,
 } from "firebase/firestore";
+
 import { db } from "../firebase";
 import DataTable from "../components/DataTable";
+import ActionMenuPortal from "../components/ActionMenuPortal";
+
 
 const PAGE_SIZE = 8;
 
@@ -72,6 +76,22 @@ export default function Medicines() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteMed, setDeleteMed] = useState(null);
 
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyMedicine, setHistoryMedicine] = useState(null);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Action menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [selectedRowId, setSelectedRowId] = useState(null);
+
+
+
+
   const [form, setForm] = useState({
     name: "",
     strength: "",
@@ -87,6 +107,8 @@ export default function Medicines() {
   const [invLoading, setInvLoading] = useState(false);
   const [invDetail, setInvDetail] = useState(null);
   const [invBatches, setInvBatches] = useState([]);
+  const { user } = useSelector((s) => s.auth);
+
 
   // Load medicines RT
   useEffect(() => {
@@ -212,6 +234,7 @@ export default function Medicines() {
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
+
     try {
       const trimmedName = form.name.trim();
       const normalizedName =
@@ -222,11 +245,131 @@ export default function Medicines() {
         strength: form.strength.trim(),
         dosageForm: form.dosageForm,
         category: form.category,
+        nameLower: normalizedName.toLowerCase(),
       };
 
+      // ---------------------------------------------
+      // 0️⃣ CHECK FOR DUPLICATE NAME (case-insensitive)
+      // ---------------------------------------------
+      const dupQuery = query(
+        collection(db, "medicines"),
+        where("nameLower", "==", medPayload.nameLower)
+      );
+      const dupSnap = await getDocs(dupQuery);
+
+      if (!editMed && dupSnap.size > 0) {
+        alert("A medicine with this name already exists.");
+        setSaving(false);
+        return;
+      }
+
+      if (editMed && dupSnap.size > 0) {
+        const same = dupSnap.docs[0];
+        if (same.id !== editMed.id) {
+          alert("Another medicine with this name already exists.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      // -----------------------------------------------------
+      // 1️⃣ If editing existing medicine
+      // -----------------------------------------------------
       if (editMed) {
-        await updateDoc(doc(db, "medicines", editMed.id), medPayload);
-      } else {
+        const medRef = doc(db, "medicines", editMed.id);
+
+        // Keep previous values for logs & undo
+        const prev = {
+          name: editMed.name || "",
+          strength: editMed.strength || "",
+          form: editMed.dosageForm || "",
+          category: editMed.category || "",
+        };
+
+        await updateDoc(medRef, medPayload);
+
+        // 🔥 Update corresponding inventory record(s)
+        const invQuery = query(
+          collection(db, "inventory"),
+          where("medicineId", "==", editMed.id)
+        );
+        const invSnap = await getDocs(invQuery);
+
+        let mergedCurrent = 0;
+        let mergedOpening = 0;
+        let firstDoc = null;
+
+        for (const d of invSnap.docs) {
+          const data = d.data();
+          mergedCurrent += data.currentStock ?? 0;
+          mergedOpening += data.openingStock ?? 0;
+
+          if (!firstDoc) {
+            firstDoc = d;
+          } else {
+            // merge duplicates: delete extra docs
+            await deleteDoc(doc(db, "inventory", d.id));
+          }
+        }
+
+        if (firstDoc) {
+          const invRef = doc(db, "inventory", firstDoc.id);
+
+          // Update metadata & merged stocks
+          await updateDoc(invRef, {
+            name: normalizedName,
+            strength: form.strength.trim(),
+            form: form.dosageForm,
+            category: form.category,
+            currentStock: mergedCurrent,
+            openingStock: mergedOpening,
+          });
+
+          // 🔁 Recalculate nextExpiryDate from inventoryPurchases
+          const purchaseQuery = query(
+            collection(db, "inventoryPurchases"),
+            where("inventoryId", "==", firstDoc.id)
+          );
+          const purSnap = await getDocs(purchaseQuery);
+
+          let earliest = null;
+          purSnap.forEach((p) => {
+            const exp = p.data().expiryDate;
+            if (exp && typeof exp.toDate === "function") {
+              const d = exp.toDate();
+              if (!earliest || d < earliest) earliest = d;
+            }
+          });
+
+          await updateDoc(invRef, {
+            nextExpiryDate: earliest || null,
+          });
+
+          // 📝 Audit log for metadata update
+          await addDoc(collection(db, "inventoryLogs"), {
+            inventoryId: firstDoc.id,
+            medicineId: editMed.id,
+            name: normalizedName,
+            reason: "metadata_update",
+            oldValues: prev,
+            newValues: {
+              name: normalizedName,
+              strength: form.strength.trim(),
+              form: form.dosageForm,
+              category: form.category,
+            },
+            userId: user?.uid || null,
+            userName: user?.name || "",
+            userEmail: user?.email || "",
+            createdAt: serverTimestamp(),
+          });
+        }
+      }
+
+      // -----------------------------------------------------
+      // 2️⃣ If creating new medicine
+      // -----------------------------------------------------
+      else {
         const openingStockNum = Number(form.openingStock);
 
         const medRef = await addDoc(collection(db, "medicines"), {
@@ -247,6 +390,7 @@ export default function Medicines() {
           createdAt: serverTimestamp(),
         });
       }
+
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -255,6 +399,9 @@ export default function Medicines() {
       setSaving(false);
     }
   };
+
+
+
 
   // Delete medicine
   const handleDelete = async () => {
@@ -321,16 +468,46 @@ export default function Medicines() {
   };
 
   const formatDate = (tsOrStr) => {
-    if (!tsOrStr) return "-";
+    if (!tsOrStr) return "—";
     try {
       const d =
         typeof tsOrStr.toDate === "function"
           ? tsOrStr.toDate()
           : new Date(tsOrStr);
-      if (!d || Number.isNaN(d.getTime())) return "-";
-      return d.toLocaleDateString();
+      if (!d || Number.isNaN(d.getTime())) return "—";
+
+      // Format as: "Nov 20, 2025 at 11:00:24 AM"
+      return d.toLocaleString('en-US', {
+        month: 'short',      // 'Nov'
+        day: 'numeric',      // '20'
+        year: 'numeric',     // '2025'
+      })
     } catch {
-      return "-";
+      return "—";
+    }
+  };
+
+  const formatDateTime = (tsOrStr) => {
+    if (!tsOrStr) return "—";
+    try {
+      const d =
+        typeof tsOrStr.toDate === "function"
+          ? tsOrStr.toDate()
+          : new Date(tsOrStr);
+      if (!d || Number.isNaN(d.getTime())) return "—";
+
+      // Format as: "Nov 20, 2025 at 11:00:24 AM"
+      return d.toLocaleString('en-US', {
+        month: 'short',      // 'Nov'
+        day: 'numeric',      // '20'
+        year: 'numeric',     // '2025'
+        hour: 'numeric',     // '11'
+        minute: '2-digit',   // '00'
+        second: '2-digit',   // '24'
+        hour12: true,        // 'AM/PM'
+      })
+    } catch {
+      return "—";
     }
   };
 
@@ -429,65 +606,317 @@ export default function Medicines() {
           return <span className="badge warning">{stock} Low</span>;
         return <span className="badge success">{stock}</span>;
       },
-    },
-    {
-      key: "actions",
-      title: "Actions",
-      align: "text-center",
-      render: (m) => (
-        <>
-          <Button
-            className="btn-icon"
-            // variant="secondary"
-            onClick={() => openEditModal(m)}
-          >
-            <i class="bi bi-pencil"></i>
-          </Button>
-          <Button
-            className="btn-icon"
-            // variant="danger"
-            onClick={() => openDeleteModal(m)}
-          >
-            <i class="bi bi-x-lg"></i>
-          </Button>
-        </>
-      ),
     }, {
-      key: "Inventory",
+      key: "inventory",
       title: "Check Inventory",
       align: "text-center",
       render: (m) => (
         <>
-          <Button
+          <button
             className="btn-icon"
             onClick={() => openInventoryView(m)}
           >
             📦
-          </Button>
+          </button>
+          {/* <button
+            className="btn-icon"
+            onClick={() => openHistoryModal(m)}
+          >
+            History
+          </button> */}
         </>
       ),
-    },
+    }, {
+      key: "actions",
+      title: "Actions",
+      align: "text-center",
+      render: (m) => (
+        <div className="actions-menu-trigger-wrapper">
+          <i
+            className="bi bi-three-dots-vertical actions-trigger-icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRowId(m.id);
+              setMenuAnchor(e.currentTarget.getBoundingClientRect());
+              setMenuOpen(true);
+            }}
+          ></i>
+
+          <ActionMenuPortal
+            open={menuOpen && selectedRowId === m.id}
+            anchorRect={menuAnchor}
+            openUp={false}
+            onClose={() => setMenuOpen(false)}
+          >
+            {/* VIEW INVENTORY */}
+            <button
+              className="dt-row-menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                openInventoryView(m);
+              }}
+            >
+              <i className="bi bi-box-seam"></i>
+              View Inventory
+            </button>
+
+            {/* EDIT */}
+            <button
+              className="dt-row-menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                openEditModal(m);
+              }}
+            >
+              <i className="bi bi-pencil-square"></i>
+              Edit Details
+            </button>
+
+            {/* DELETE */}
+            <button
+              className="dt-row-menu-item delete"
+              onClick={() => {
+                setMenuOpen(false);
+                openDeleteModal(m);
+              }}
+            >
+              <i className="bi bi-trash"></i>
+              Delete Medicine
+            </button>
+          </ActionMenuPortal>
+        </div>
+      ),
+    }
   ];
+
+  const openHistoryModal = async (med) => {
+    setHistoryMedicine(med);
+    setHistoryLogs([]);
+    setShowHistoryModal(true);
+    setHistoryLoading(true);
+
+    try {
+      const q = query(
+        collection(db, "inventoryLogs"),
+        where("medicineId", "==", med.id),
+        orderBy("createdAt", "desc")
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setHistoryLogs(list);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleUndoMetadata = async (log) => {
+    if (log.reason !== "metadata_update" || !log.oldValues) {
+      alert("This log cannot be undone.");
+      return;
+    }
+    if (!window.confirm("Revert medicine details to this version?")) return;
+
+    const oldVals = log.oldValues;
+    const medId = log.medicineId;
+    try {
+      // 1. Update medicine
+      const medRef = doc(db, "medicines", medId);
+      await updateDoc(medRef, {
+        name: oldVals.name,
+        strength: oldVals.strength,
+        dosageForm: oldVals.form,
+        category: oldVals.category,
+        nameLower: (oldVals.name || "").toLowerCase(),
+      });
+
+      // 2. Update inventory docs
+      const invQ = query(
+        collection(db, "inventory"),
+        where("medicineId", "==", medId)
+      );
+      const invSnap = await getDocs(invQ);
+      for (const d of invSnap.docs) {
+        await updateDoc(doc(db, "inventory", d.id), {
+          name: oldVals.name,
+          strength: oldVals.strength,
+          form: oldVals.form,
+          category: oldVals.category,
+        });
+      }
+
+      // 3. Log undo
+      await addDoc(collection(db, "inventoryLogs"), {
+        inventoryId: historyLogs[0]?.inventoryId || null,
+        medicineId: medId,
+        name: oldVals.name,
+        reason: "metadata_undo",
+        fromLogId: log.id,
+        revertedTo: oldVals,
+        userId: user?.uid || null,
+        userName: user?.name || "",
+        userEmail: user?.email || "",
+        createdAt: serverTimestamp(),
+      });
+
+      alert("Reverted successfully.");
+      // Refresh list
+      if (historyMedicine) {
+        openHistoryModal(historyMedicine);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to undo changes.");
+    }
+  };
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target.result;
+      await processImportCSV(text);
+    };
+    reader.readAsText(file);
+  };
+
+  const processImportCSV = async (text) => {
+    setImporting(true);
+    try {
+      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+      if (lines.length < 2) {
+        alert("No data rows found in CSV.");
+        return;
+      }
+
+      const header = lines[0]
+        .split(",")
+        .map((h) => h.trim().toLowerCase());
+
+      const idxName = header.indexOf("name");
+      const idxStrength = header.indexOf("strength");
+      const idxForm = header.indexOf("dosageform");
+      const idxCategory = header.indexOf("category");
+      const idxOpening = header.indexOf("openingstock");
+
+      if (
+        idxName === -1 ||
+        idxStrength === -1 ||
+        idxForm === -1 ||
+        idxCategory === -1 ||
+        idxOpening === -1
+      ) {
+        alert(
+          "CSV must have columns: name, strength, dosageForm, category, openingStock"
+        );
+        return;
+      }
+
+      let importedCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i].trim();
+        if (!row) continue;
+
+        const cols = row.split(","); // simple split; avoid commas in fields
+        const nameRaw = cols[idxName]?.trim();
+        if (!nameRaw) continue;
+
+        const strength = cols[idxStrength]?.trim() || "";
+        const dosageForm = cols[idxForm]?.trim() || "Tablet";
+        const category = cols[idxCategory]?.trim() || "Other";
+        const openingStr = cols[idxOpening]?.trim() || "0";
+        const openingStockNum = Number(openingStr) || 0;
+
+        const normalizedName =
+          nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1);
+        const nameLower = normalizedName.toLowerCase();
+
+        // skip if already exists
+        const dupQ = query(
+          collection(db, "medicines"),
+          where("nameLower", "==", nameLower)
+        );
+        const dupSnap = await getDocs(dupQ);
+        if (dupSnap.size > 0) {
+          // skip duplicate
+          continue;
+        }
+
+        const medPayload = {
+          name: normalizedName,
+          strength,
+          dosageForm,
+          category,
+          nameLower,
+          createdAt: serverTimestamp(),
+        };
+
+        const medRef = await addDoc(collection(db, "medicines"), medPayload);
+        const medicineId = medRef.id;
+
+        await addDoc(collection(db, "inventory"), {
+          medicineId,
+          name: normalizedName,
+          strength,
+          form: dosageForm,
+          category,
+          openingStock: openingStockNum,
+          currentStock: openingStockNum,
+          createdAt: serverTimestamp(),
+        });
+
+        importedCount++;
+      }
+
+      alert(`Imported ${importedCount} medicines.`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to import CSV.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+
 
   return (
     <div>
       <Card className="shadow-sm border-0">
         <Card.Body>
           {/* Header */}
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <Card.Title className="mb-0">
-              Medicines{" "}
-              <Badge bg="secondary" pill>
-                {medicines.length}
-              </Badge>
-            </Card.Title>
-            <div className="d-flex gap-2">
-              <Button variant="outline-secondary" onClick={handleExportCSV}>
-                Export (.csv)
-              </Button>
-              <Button onClick={openAddModal}>New Medicine</Button>
-            </div>
+          <div className="d-flex justify-content-end align-items-center mb-3 gap-2">
+            <Button
+              variant="outline-secondary"
+              onClick={handleImportClick}
+              disabled={importing}
+            >
+              {importing ? "Importing..." : "Import CSV"}
+            </Button>
+            <input
+              type="file"
+              accept=".csv"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleImportFile}
+            />
+            <Button variant="outline-secondary" onClick={handleExportCSV}>
+              Export (.csv)
+            </Button>
+            <Button onClick={openAddModal}>New Medicine</Button>
           </div>
+
 
           {/* Filters */}
           <div className="d-flex flex-wrap gap-2 mb-3">
@@ -696,7 +1125,7 @@ export default function Medicines() {
       <Modal
         show={showInvModal}
         onHide={() => setShowInvModal(false)}
-        size="lg"
+        size="xl"
         centered
       >
         <Modal.Header closeButton>
@@ -723,34 +1152,34 @@ export default function Medicines() {
                 </div>
               </div>
 
-              <div className="d-flex flex-wrap gap-3 mb-4">
-                <Card className="flex-grow-1 shadow-sm border-0">
-                  <Card.Body>
+              <div className="d-flex gap-3 mb-4">
+                <Card className="shadow-sm border-0" style={{ height: '100%', width: '100%' }}>
+                  <Card.Body style={{ padding: '10px 20px' }}>
                     <div className="text-muted small">Current Stock</div>
-                    <div className="fs-4 fw-semibold">
+                    <div className="fs-5 fw-semibold">
                       {invDetail.currentStock ?? 0}
                     </div>
                   </Card.Body>
                 </Card>
-                <Card className="flex-grow-1 shadow-sm border-0">
-                  <Card.Body>
+                <Card className="shadow-sm border-0" style={{ height: '100%', width: '100%' }}>
+                  <Card.Body style={{ padding: '10px 20px' }}>
                     <div className="text-muted small">Opening Stock</div>
-                    <div className="fs-4 fw-semibold">
+                    <div className="fs-5 fw-semibold">
                       {invDetail.openingStock ?? 0}
                     </div>
                   </Card.Body>
                 </Card>
-                <Card className="flex-grow-1 shadow-sm border-0">
-                  <Card.Body>
+                <Card className="shadow-sm border-0" style={{ height: '100%', width: '100%' }}>
+                  <Card.Body style={{ padding: '10px 20px' }}>
                     <div className="text-muted small">Created On</div>
-                    <div className="fs-6 fw-semibold">
+                    <div className="fs-5 fw-semibold">
                       {formatDate(invDetail.createdAt)}
                     </div>
                   </Card.Body>
                 </Card>
               </div>
 
-              <h6 className="mb-2">Batches & Purchases</h6>
+              <h6 className="mb-2">Latest Purchase Batches</h6>
               {invBatches.length === 0 ? (
                 <div className="text-muted small">
                   No purchase entries recorded yet.
@@ -774,7 +1203,7 @@ export default function Medicines() {
                         const status = expiryStatus(b.expiryDate);
                         return (
                           <tr key={b.id}>
-                            <td>{formatDate(b.createdAt)}</td>
+                            <td>{formatDateTime(b.createdAt)}</td>
                             <td>{b.batchNumber || "-"}</td>
                             <td>{b.quantity || 0}</td>
                             <td>{formatDate(b.expiryDate)}</td>
@@ -794,6 +1223,101 @@ export default function Medicines() {
           )}
         </Modal.Body>
       </Modal>
+      <Modal
+        show={showHistoryModal}
+        onHide={() => setShowHistoryModal(false)}
+        size="xl"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Edit History — {historyMedicine?.name || ""}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {historyLoading ? (
+            <div className="text-center py-4">
+              <Spinner animation="border" />
+            </div>
+          ) : historyLogs.length === 0 ? (
+            <div className="text-muted small">No history found for this medicine.</div>
+          ) : (
+            <div className="clinic-table-wrapper">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Reason</th>
+                    <th>User</th>
+                    <th>Change</th>
+                    <th>Old</th>
+                    <th>New</th>
+                    <th>Undo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td>
+                        {log.createdAt?.toDate
+                          ? log.createdAt.toDate().toLocaleString()
+                          : "—"}
+                      </td>
+                      <td>{log.reason}</td>
+                      <td className="small">
+                        {log.userName || log.userEmail || "—"}
+                      </td>
+                      <td className="small">
+                        {log.reason === "metadata_update" && log.oldValues && log.newValues ? (
+                          <>
+                            <div>
+                              <strong>Name:</strong> {log.oldValues.name} →{" "}
+                              {log.newValues.name}
+                            </div>
+                            <div>
+                              <strong>Strength:</strong> {log.oldValues.strength} →{" "}
+                              {log.newValues.strength}
+                            </div>
+                            <div>
+                              <strong>Form:</strong> {log.oldValues.form} →{" "}
+                              {log.newValues.form}
+                            </div>
+                            <div>
+                              <strong>Category:</strong> {log.oldValues.category} →{" "}
+                              {log.newValues.category}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-muted">{log.change}</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="text-muted">{log.oldStock}</span>
+                      </td>
+                      <td>
+                        <span className="text-muted">{log.newStock}</span>
+                      </td>
+                      <td>
+                        {log.reason === "metadata_update" ? (
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => handleUndoMetadata(log)}
+                          >
+                            Undo
+                          </button>
+                        ) : (
+                          <span className="text-muted small">N/A</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
+
     </div>
   );
 }

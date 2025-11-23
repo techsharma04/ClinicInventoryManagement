@@ -130,8 +130,8 @@ export default function PrintPrescription() {
         <div className="rx-page">
             <div className="rx-sheet">
                 {/* HEADER */}
-                <div>
-                    <header className="rx-header" style={{ visibility: 'hidden' }}>
+                <div className="rx-sheet-header">
+                    <header className="rx-header visibility-hidden">
                         <div className="rx-header-left">
                             <div className="rx-clinic-name">
                                 {/* LIFE KARE HOSPITAL */}
@@ -159,31 +159,23 @@ export default function PrintPrescription() {
                         {/* Doc info + prescription meta */}
                         <div>
 
-                            <hr className="rx-divider" />
+                            <hr className="rx-divider display-none" />
 
-                            <div className="rx-top-info">
-                                <div className="rx-doctor-block">
-                                    <div className="rx-doctor-name">{patient.name} ({patient.age}y/ {patient.sex})</div>
-                                    <div className="rx-doctor-address">{patient.address}</div>
-                                </div>
-                                <div className="rx-meta-block">
 
-                                    <div className="rx-meta-row">
-                                        <span className="rx-meta-label">Date:</span>
-                                        <span className="rx-meta-value">{dateStr}</span>
-                                    </div>
-                                    <div className="rx-meta-row">
-                                        <span className="rx-meta-label">OHID No. </span>
-                                        <span className="rx-meta-value">#{orderId}</span>
-                                    </div>
-                                </div>
+                            <div className="rx-doctor-block">
+                                <div className="rx-doctor-name" style={{ width: "46%" }}>{patient.name}</div>
+                                <div className="rx-doctor-name">({patient.age}y/ {patient.sex})</div>
+                                <div className="rx-doctor-name">{dateStr}</div>
                             </div>
 
-                            <hr className="rx-divider" />
-
+                            <hr className="rx-divider display-none" />
+                            <div className="rx-patient-row flex-row justify-content-end pt-4" >
+                                <span className="rx-patient-label m-0">UHID No. </span>
+                                <strong className="rx-patient-value">#{orderId}</strong>
+                            </div>
                             <div className="rx-patient-row">
                                 <div className="rx-patient-label">Chief Complaints & Provisional Diagnosis:</div>
-                                <div className="rx-patient-value" style={{ whiteSpace: "pre-line" }}>{instructions}</div>
+                                <div className="rx-patient-value">{instructions}</div>
                             </div>
                             {/* Medicines list */}
                             <section className="rx-meds-section">
@@ -194,8 +186,8 @@ export default function PrintPrescription() {
                                             <th style={{ width: "40px" }}>#</th>
                                             <th>Medicine</th>
                                             <th>Dosage</th>
-                                            <th>Frequency</th>
                                             <th>Duration</th>
+                                            <th>Instructions</th>
                                         </tr>
                                     </thead>
 
@@ -231,8 +223,9 @@ export default function PrintPrescription() {
                                                     </td>
 
                                                     {/* Frequency – Duration */}
+
                                                     <td>
-                                                        <strong style={{ fontWeight: 400 }}>{m.timesPerDay}</strong>
+                                                        <strong style={{ fontWeight: 400 }}>{m.days} Days</strong>
                                                     </td>
                                                     <td>
                                                         <strong style={{ fontWeight: 400 }}>{m.instructions}</strong>
@@ -244,25 +237,32 @@ export default function PrintPrescription() {
                                 </table>
                             </section>
 
+                            <div className="rx-patient-row">
+                                <div className="rx-patient-label" style={{ color: '#000' }}>Special Instructions:</div>
+                                <div className="rx-patient-value rx-instructions">{instructions}</div>
+                            </div>
+                        </div>
+                        <div className="rx-doctor-row">
+                            <div className="rx-patient-label" style={{ color: '#555' }}>Signature ________________________________________</div>
                         </div>
 
                     </main>
+                    {/* FOOTER BAR */}
+                    <footer className="rx-footer visibility-hidden">
+                        <div className="rx-footer-item">
+                            <i className="bi bi-telephone rx-footer-icon" />
+                            <span>+91 9216172500</span>
+                        </div>
+                        <div className="rx-footer-item">
+                            <i className="bi bi-envelope rx-footer-icon" />
+                            <span>lifekarehospital@gmail.com</span>
+                        </div>
+                        <div className="rx-footer-item">
+                            <i className="bi bi-globe rx-footer-icon" />
+                            <span>www.lifekarehospital.in</span>
+                        </div>
+                    </footer>
                 </div>
-                {/* FOOTER BAR */}
-                <footer className="rx-footer" style={{ visibility: 'hidden' }}>
-                    <div className="rx-footer-item">
-                        <i className="bi bi-telephone rx-footer-icon" />
-                        <span>+91 9216172500</span>
-                    </div>
-                    <div className="rx-footer-item">
-                        <i className="bi bi-envelope rx-footer-icon" />
-                        <span>lifekarehospital@gmail.com</span>
-                    </div>
-                    <div className="rx-footer-item">
-                        <i className="bi bi-globe rx-footer-icon" />
-                        <span>www.lifekarehospital.in</span>
-                    </div>
-                </footer>
             </div>
 
             {/* Buttons – hidden on print */}

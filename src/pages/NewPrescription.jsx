@@ -26,7 +26,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { db } from "../firebase";
 
 const DOSAGE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-const TIMES_OPTIONS = ["Once daily", "Twice daily", "Thrice daily", "Four times in a day", "Five times in a day", "Six times in a day", "Bedtime"," Empty Stomach"];
+const TIMES_OPTIONS = ["Once Daily", "Twice Daily", "Thrice Daily", "Four times in a day", "Five times in a day", "Six times in a day", "Bedtime"," Empty Stomach"];
 
 const TIMES_NUMERIC = {
   "Once Daily": 1,
@@ -67,9 +67,9 @@ function buildPattern(dosageCount, timesPerDay) {
   let base = [];
 
   switch (timesPerDay) {
-    case "Once daily": base = ["1", "x", "x"]; break;
-    case "Twice daily": base = ["1", "x", "1"]; break;
-    case "Thrice daily": base = ["1", "1", "1"]; break;
+    case "Once Daily": base = ["1", "x", "x"]; break;
+    case "Twice Daily": base = ["1", "x", "1"]; break;
+    case "Thrice Daily": base = ["1", "1", "1"]; break;
     case "Four times in a day": base = ["1", "1", "1", "1"]; break;
     case "Five times in a day": base = ["1", "1", "1", "1", "1"]; break;
     case "Six times in a day": base = ["1", "1", "1", "1", "1", "1"]; break;
@@ -192,8 +192,8 @@ export default function NewPrescription() {
           strength: m.strength,
           dosageForm: m.dosageForm || "Tablet",
           dosageCount: 1,
-          timesPerDay: "Once daily",
-          pattern: buildPattern(1, "Once daily"),
+          timesPerDay: "Once Daily",
+          pattern: buildPattern(1, "Once Daily"),
           instructions: "",
           days: 5,
         },
@@ -283,8 +283,8 @@ export default function NewPrescription() {
           strength: newMed.strength.trim(),
           dosageForm: newMed.dosageForm,
           dosageCount: 1,
-          timesPerDay: "Once daily",
-          pattern: buildPattern(1, "Once daily"),
+          timesPerDay: "Once Daily",
+          pattern: buildPattern(1, "Once Daily"),
           instructions: "",
           days: 5,
         },

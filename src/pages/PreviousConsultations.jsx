@@ -3,8 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   Form,
-  Dropdown,
-  ButtonGroup,
   Spinner,
 } from "react-bootstrap";
 import {
@@ -23,6 +21,7 @@ import { useReactToPrint } from "react-to-print";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import DataTable from "../components/DataTable";
+import ActionMenuPortal from "../components/ActionMenuPortal";
 import "../components/styles/table-wrapper.css";
 
 const PAGE_SIZE = 8;
@@ -43,6 +42,15 @@ export default function PreviousConsultations() {
   const printRef = useRef();
   const [workOrderToPrint, setWorkOrderToPrint] = useState(null);
   const [printAction, setPrintAction] = useState(null); // "print" | "pdf" | null
+
+  // Row menu state
+  const [rowMenu, setRowMenu] = useState({
+    open: false,
+    anchorRect: null,
+    item: null,
+    openUp: false,
+  });
+
 
   const handlePrintSpecific = useReactToPrint({
     contentRef: printRef,
@@ -65,6 +73,23 @@ export default function PreviousConsultations() {
     );
     return () => unsub();
   }, []);
+
+  const openRowMenu = (event, item) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const openUp = rect.top > window.innerHeight / 2;
+
+    setRowMenu({
+      open: true,
+      anchorRect: rect,
+      item,
+      openUp,
+    });
+  };
+
+  const closeRowMenu = () => {
+    setRowMenu((prev) => ({ ...prev, open: false }));
+  };
+
 
   const doctorOptions = useMemo(() => {
     const map = new Map();
@@ -239,11 +264,22 @@ export default function PreviousConsultations() {
           ? tsOrStr.toDate()
           : new Date(tsOrStr);
       if (!d || Number.isNaN(d.getTime())) return "—";
-      return d.toLocaleDateString();
+
+      // Format as: "Nov 20, 2025 at 11:00:24 AM"
+      return d.toLocaleString('en-US', {
+        month: 'short',      // 'Nov'
+        day: 'numeric',      // '20'
+        year: 'numeric',     // '2025'
+        hour: 'numeric',     // '11'
+        minute: '2-digit',   // '00'
+        second: '2-digit',   // '24'
+        hour12: true,        // 'AM/PM'
+      }).replace(',', ' at'); // Replace comma with ' at'
     } catch {
       return "—";
     }
   };
+
 
   const shortMedicinesPreview = (w) => {
     const meds = w.medicines || [];
@@ -260,32 +296,79 @@ export default function PreviousConsultations() {
   // DataTable columns – card-style row
   const columns = [
     {
-      key: "info",
+      key: "uhid",
+      title: "UHID",
+      render: (w) => (
+        <div className="consultation-row">
+          <div className="d-flex align-items-center gap-2">
+            <div>
+              <div className="inv-meta">
+                #{w.orderId || "—"}
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    }, {
+      key: "patient",
       title: "Consultation",
       render: (w) => (
         <div className="consultation-row">
-          <div className="d-flex align-items-start gap-2">
-            <div className="row-icon">🩺</div>
+          <div className="d-flex align-items-center gap-2">
             <div>
-              <div className="inv-main-title">
-                #{w.orderId || "—"} &mdash;{" "}
+              <div className="inv-meta">
                 {w.patient?.name || "Unknown patient"}
               </div>
-              <div className="inv-meta">
-                <span>
-                  {w.doctor?.name || w.doctor?.email || "Unknown doctor"}
-                </span>
-                <span>•</span>
-                <span>{w.doctor.role}</span>
-                <span>•</span>
-                <span>{formatDate(w.createdAt)}</span>
-              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "medicine",
+      title: "Medicines",
+      render: (w) => (
+        <div className="consultation-row">
+          <div className="d-flex align-items-center gap-2">
+            <div>
               <div className="small text-muted mt-1">
-                <strong>Medicines:</strong> {shortMedicinesPreview(w)}{" "}
-                <span className="text-muted">
+                {shortMedicinesPreview(w)}{" "}
+                <p className="text-muted">
                   ({(w.medicines || []).length} item
                   {(w.medicines || []).length === 1 ? "" : "s"})
-                </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "datetime",
+      title: "Visited On",
+      render: (w) => (
+        <div className="consultation-row">
+          <div className="d-flex align-items-center gap-2">
+            <div>
+              <div className="inv-meta">
+                <span>{formatDate(w.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    }, {
+      key: "doctor",
+      title: "Attended By",
+      render: (w) => (
+        <div className="consultation-row">
+          <div className="d-flex align-items-center gap-2">
+            <div>
+              <div className="inv-meta">
+                <strong>
+                  Dr. {w.doctor?.name || w.doctor?.email || "Unknown doctor"}
+                </strong>
+                <span>{w.doctor.role}</span>
               </div>
             </div>
           </div>
@@ -294,51 +377,17 @@ export default function PreviousConsultations() {
     },
     {
       key: "actions",
-      title: "Actions",
+      title: "",
+      align: "text-end",
       render: (w) => (
-        <Dropdown as={ButtonGroup} align="end">
-          <Dropdown.Toggle
-            size="sm"
-            variant="outline-secondary"
-            className="custom-dropup-toggle"
-          >
-            <i className="bi bi-plus-circle-dotted"></i>
-          </Dropdown.Toggle>
-
-          <Dropdown.Menu className="custom-dropup-menu">
-            <Dropdown.Item onClick={() => handleEdit(w)}>
-              <i className="bi bi-pencil-square me-2"></i>
-              Edit
-            </Dropdown.Item>
-
-            <Dropdown.Item onClick={() => handlePrintView(w)}>
-              <i className="bi bi-printer me-2"></i>
-              Print View
-            </Dropdown.Item>
-
-            <Dropdown.Item onClick={() => handlePrintDirect(w)}>
-              <i className="bi bi-printer-fill me-2"></i>
-              Direct Print
-            </Dropdown.Item>
-
-            <Dropdown.Item onClick={() => triggerPdf(w)}>
-              <i className="bi bi-file-earmark-pdf me-2"></i>
-              PDF
-            </Dropdown.Item>
-
-            <Dropdown.Divider />
-
-            <Dropdown.Item
-              className="text-danger"
-              onClick={() => handleDelete(w)}
-            >
-              <i className="bi bi-trash me-2"></i>
-              Delete
-            </Dropdown.Item>
-          </Dropdown.Menu>
-        </Dropdown>
+        <div
+          className="actions-menu-trigger-wrapper"
+          onClick={(e) => openRowMenu(e, w)}>
+          <i className="bi bi-three-dots-vertical actions-trigger-icon"></i>
+        </div>
       ),
-    },
+    }
+
   ];
 
   return (
@@ -420,6 +469,65 @@ export default function PreviousConsultations() {
       >
         <WorkorderPrint ref={printRef} data={workOrderToPrint} />
       </div>
+      <ActionMenuPortal
+        open={rowMenu.open}
+        anchorRect={rowMenu.anchorRect}
+        openUp={rowMenu.openUp}
+        onClose={closeRowMenu}
+      >
+        <button
+          className="dt-row-menu-item"
+          onClick={() => {
+            closeRowMenu();
+            handleEdit(rowMenu.item);
+          }}
+        >
+          <i className="bi bi-pencil-square"></i> Edit
+        </button>
+
+        <button
+          className="dt-row-menu-item"
+          onClick={() => {
+            closeRowMenu();
+            handlePrintView(rowMenu.item);
+          }}
+        >
+          <i className="bi bi-printer"></i> Print View
+        </button>
+
+        <button
+          className="dt-row-menu-item"
+          onClick={() => {
+            closeRowMenu();
+            handlePrintDirect(rowMenu.item);
+          }}
+        >
+          <i className="bi bi-printer-fill"></i> Direct Print
+        </button>
+
+        <button
+          className="dt-row-menu-item"
+          onClick={() => {
+            closeRowMenu();
+            triggerPdf(rowMenu.item);
+          }}
+        >
+          <i className="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+
+        <hr className="dropdown-divider" />
+
+        <button
+          className="dt-row-menu-item text-danger"
+          onClick={() => {
+            closeRowMenu();
+            handleDelete(rowMenu.item);
+          }}
+        >
+          <i className="bi bi-trash"></i> Delete
+        </button>
+      </ActionMenuPortal>
+
     </div>
   );
 }

@@ -1,6 +1,21 @@
 // src/pages/RegisteredPatients.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Card, Form, Spinner, Button, Modal, Row, Col, Badge } from "react-bootstrap";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
+import ReactDOM from "react-dom";
+import {
+  Card,
+  Form,
+  Spinner,
+  Button,
+  Modal,
+  Row,
+  Col,
+  Badge,
+} from "react-bootstrap";
 import {
   collection,
   onSnapshot,
@@ -13,8 +28,28 @@ import {
 import { db } from "../firebase";
 import DataTable from "../components/DataTable";
 import "../components/styles/table-wrapper.css";
+import ActionMenuPortal from "../components/ActionMenuPortal";
 
 const PAGE_SIZE = 10;
+
+function initialEditForm() {
+  return {
+    name: "",
+    age: "",
+    sex: "",
+    address: "",
+    phone: "",
+    email: "",
+    bloodGroup: "",
+    maritalStatus: "",
+    emergencyContact: "",
+    medicalHistory: "",
+    allergies: "",
+    dob: "",
+  };
+}
+
+
 
 export default function RegisteredPatients() {
   const [patients, setPatients] = useState([]);
@@ -43,6 +78,11 @@ export default function RegisteredPatients() {
   const [deletePatient, setDeletePatient] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Actions dropdown state (portal-based)
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuAnchorRect, setMenuAnchorRect] = useState(null);
+  const [menuOpenUp, setMenuOpenUp] = useState(false);
 
   // Load patients (excluding soft-deleted)
   useEffect(() => {
@@ -123,31 +163,12 @@ export default function RegisteredPatients() {
     }
   }
 
-  function initialEditForm() {
-    return {
-      name: "",
-      age: "",
-      sex: "",
-      address: "",
-      phone: "",
-      email: "",
-      bloodGroup: "",
-      maritalStatus: "",
-      emergencyContact: "",
-      medicalHistory: "",
-      allergies: "",
-      dob: "",
-    };
-  }
-
   // Advanced filter logic
   const filtered = useMemo(() => {
     return patients.filter((p) => {
       const name = (p.name || "").toLowerCase();
       const addr = (p.address || "").toLowerCase();
       const sex = (p.sex || "").toLowerCase();
-      const phone = (p.phone || "").toLowerCase();
-      const email = (p.email || "").toLowerCase();
 
       // Name filter
       if (nameFilter.trim()) {
@@ -167,10 +188,14 @@ export default function RegisteredPatients() {
       }
 
       // Age range filter
-      const ageVal = p.age != null && p.age !== "" ? Number(p.age) : calcAgeFromDob(p.dob);
+      const ageVal =
+        p.age != null && p.age !== ""
+          ? Number(p.age)
+          : calcAgeFromDob(p.dob);
       if (ageFrom) {
         const from = Number(ageFrom);
-        if (!Number.isNaN(from) && ageVal != null && ageVal < from) return false;
+        if (!Number.isNaN(from) && ageVal != null && ageVal < from)
+          return false;
       }
       if (ageTo) {
         const to = Number(ageTo);
@@ -183,8 +208,44 @@ export default function RegisteredPatients() {
 
   // Pagination
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => setPage(1), [nameFilter, addressFilter, genderFilter, ageFrom, ageTo]);
+  const pageData = filtered.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+  useEffect(
+    () => setPage(1),
+    [nameFilter, addressFilter, genderFilter, ageFrom, ageTo]
+  );
+
+  // --- Actions dropdown (3 dots) ---
+
+  const closeMenu = useCallback(() => {
+    setOpenMenuId(null);
+    setMenuAnchorRect(null);
+  }, []);
+
+  const handleOpenMenu = (e, p) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight;
+
+    // Decide whether to open up or down (estimate menu height ~200px)
+    const estimatedMenuHeight = 200;
+    const enoughSpaceBelow = rect.bottom + estimatedMenuHeight < viewportHeight;
+    const openUp = !enoughSpaceBelow;
+
+    setOpenMenuId((prev) => (prev === p.id ? null : p.id));
+    setMenuAnchorRect(rect);
+    setMenuOpenUp(openUp);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = () => closeMenu();
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, [closeMenu]);
 
   // View modal handlers
   const handleView = (p) => {
@@ -217,10 +278,16 @@ export default function RegisteredPatients() {
     const e = {};
     if (!editForm.name.trim()) e.name = "Name is required";
     if (!editForm.sex.trim()) e.sex = "Gender is required";
-    if (editForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) {
+    if (
+      editForm.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)
+    ) {
       e.email = "Invalid email";
     }
-    if (editForm.phone && !/^[0-9()+\-\s]{7,20}$/.test(editForm.phone)) {
+    if (
+      editForm.phone &&
+      !/^[0-9()+\-\s]{7,20}$/.test(editForm.phone)
+    ) {
       e.phone = "Invalid phone number";
     }
     setEditErrors(e);
@@ -507,7 +574,7 @@ export default function RegisteredPatients() {
       render: (p) => (
         <div className="small">
           {p.email && (
-            <div style={{textTransform:'none'}}>
+            <div style={{ textTransform: "none" }}>
               <span className="text-muted">Email: </span>
               {p.email}
             </div>
@@ -518,7 +585,9 @@ export default function RegisteredPatients() {
               {p.phone}
             </div>
           )}
-          {!p.phone && !p.email && <span className="text-muted">—</span>}
+          {!p.phone && !p.email && (
+            <span className="text-muted">—</span>
+          )}
         </div>
       ),
     },
@@ -530,36 +599,82 @@ export default function RegisteredPatients() {
     },
     {
       key: "actions",
-      title: "Actions",
+      title: "",
       align: "text-center",
-      render: (p) => (
-        <>
-          <button
-            className="btn-icon"
-            onClick={() => handleView(p)}
-          >
-            View
-          </button>
-          <button
-            className="btn-icon"
-            onClick={() => handleOpenEdit(p)}
-          >
-            Edit
-          </button>
-          <button
-            className="btn-icon"
-            onClick={() => handleOpenDelete(p)}
-          >
-            Delete
-          </button>
-          <button
-            className="btn-icon"
-            onClick={() => handlePrint(p)}
-          >
-            Print
-          </button>
-        </>
-      ),
+      render: (p) => {
+        const isDeleted = !!p.deleted; // future-proof, list already filters deleted
+
+        return (
+          <>
+            <div
+              className="actions-menu-trigger-wrapper"
+              onClick={(e) => handleOpenMenu(e, p)}
+            >
+              <i className="bi bi-three-dots-vertical actions-trigger-icon"></i>
+            </div>
+
+            {openMenuId === p.id && (
+              <ActionMenuPortal
+                open={openMenuId === p.id}
+                anchorRect={menuAnchorRect}
+                openUp={menuOpenUp}
+              >
+                <button
+                  className="action-item"
+                  onClick={() => {
+                    closeMenu();
+                    handleView(p);
+                  }}
+                >
+                  <i className="bi bi-eye" />
+                  <span>View Details</span>
+                </button>
+
+                <button
+                  className={`action-item ${
+                    isDeleted ? "disabled" : ""
+                  }`}
+                  disabled={isDeleted}
+                  onClick={() => {
+                    if (isDeleted) return;
+                    closeMenu();
+                    handleOpenEdit(p);
+                  }}
+                >
+                  <i className="bi bi-pencil-square" />
+                  <span>Edit</span>
+                </button>
+
+                <button
+                  className={`action-item delete ${
+                    isDeleted ? "disabled" : ""
+                  }`}
+                  disabled={isDeleted}
+                  onClick={() => {
+                    if (isDeleted) return;
+                    closeMenu();
+                    handleOpenDelete(p);
+                  }}
+                >
+                  <i className="bi bi-trash" />
+                  <span>Delete</span>
+                </button>
+
+                <button
+                  className="action-item"
+                  onClick={() => {
+                    closeMenu();
+                    handlePrint(p);
+                  }}
+                >
+                  <i className="bi bi-printer" />
+                  <span>Print Profile</span>
+                </button>
+              </ActionMenuPortal>
+            )}
+          </>
+        );
+      },
     },
   ];
 
@@ -567,12 +682,16 @@ export default function RegisteredPatients() {
     <div>
       <Card className="shadow-sm border-0">
         <Card.Body>
-          <Card.Title className="mb-3">Registered Patients</Card.Title>
+          <Card.Title className="mb-3">
+            Registered Patients
+          </Card.Title>
 
           {/* ADVANCED FILTERS */}
           <Row className="g-2 mb-3">
             <Col md={3} sm={6}>
-              <Form.Label className="small text-muted mb-1">Name</Form.Label>
+              <Form.Label className="small text-muted mb-1">
+                Name
+              </Form.Label>
               <Form.Control
                 size="sm"
                 placeholder="Search by name..."
@@ -694,7 +813,8 @@ export default function RegisteredPatients() {
                     {viewPatient.maritalStatus || "—"}
                   </div>
                   <div className="small mb-1">
-                    <strong>Date of Birth:</strong> {formatDate(viewPatient.dob)}
+                    <strong>Date of Birth:</strong>{" "}
+                    {formatDate(viewPatient.dob)}
                   </div>
                 </Col>
                 <Col md={6}>
@@ -702,13 +822,16 @@ export default function RegisteredPatients() {
                     Contact & Address
                   </h6>
                   <div className="small mb-1">
-                    <strong>Phone:</strong> {viewPatient.phone || "—"}
+                    <strong>Phone:</strong>{" "}
+                    {viewPatient.phone || "—"}
                   </div>
                   <div className="small mb-1">
-                    <strong>Email:</strong> {viewPatient.email || "—"}
+                    <strong>Email:</strong>{" "}
+                    {viewPatient.email || "—"}
                   </div>
                   <div className="small mb-1">
-                    <strong>Address:</strong> {viewPatient.address || "—"}
+                    <strong>Address:</strong>{" "}
+                    {viewPatient.address || "—"}
                   </div>
                   <div className="small mb-1">
                     <strong>Emergency Contact:</strong>{" "}
@@ -773,7 +896,10 @@ export default function RegisteredPatients() {
               </Button>
             </>
           )}
-          <Button variant="secondary" onClick={() => setShowViewModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowViewModal(false)}
+          >
             Close
           </Button>
         </Modal.Footer>
@@ -1007,11 +1133,11 @@ export default function RegisteredPatients() {
           <Modal.Title>Delete Patient</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to <strong>soft delete</strong> patient{" "}
-          <strong>{deletePatient?.name}</strong>?<br />
+          Are you sure you want to <strong>soft delete</strong>{" "}
+          patient <strong>{deletePatient?.name}</strong>?<br />
           <span className="text-muted small">
-            They will be hidden from this list but remain in the database
-            with a deleted flag.
+            They will be hidden from this list but remain in the
+            database with a deleted flag.
           </span>
         </Modal.Body>
         <Modal.Footer>
